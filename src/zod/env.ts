@@ -4,70 +4,130 @@ export const envSchema = z.object({
   NODE_ENV: z
     .enum(["development", "production", "preview"])
     .default("development"),
-  CLIENT_URL: z.url({
-    message: "CLIENT_URL must be a valid URL",
+  PORT: z.string({
+    required_error: "PORT is required",
   }),
-  PORT: z.string().min(1, { message: "PORT is required" }),
-
-  API_KEY: z.string().min(1, { message: "API_KEY is required" }),
-
-  POSTGRES_USER: z.string().min(1, { message: "POSTGRES_USER is required" }),
-  POSTGRES_PASSWORD: z
-    .string()
-    .min(1, { message: "POSTGRES_PASSWORD is required" }),
-  POSTGRES_DB: z.string().min(1, { message: "POSTGRES_DB is required" }),
-  DATABASE_URL: z.string().min(1, { message: "DATABASE_URL is required" }),
-
-  MONAD_PROVIDER_URL: z.url({
-    message: "MONAD_PROVIDER_URL must be a valid URL",
+  API_KEY: z.string({
+    required_error: "API_KEY is required",
   }),
 
-  ALCHEMY_API_KEY: z
-    .string()
-    .min(1, { message: "ALCHEMY_API_KEY is required" }),
-
-  AWS_SECRETS_MANAGER_SECRET_NAME: z
-    .string()
-    .min(1, { message: "AWS_SECRETS_MANAGER_SECRET_NAME is required" }),
-  AWS_KMS_REGION: z.string().min(1, { message: "AWS_KMS_REGION is required" }),
-  AWS_KMS_ACCESS_KEY: z
-    .string()
-    .min(1, { message: "AWS_KMS_ACCESS_KEY is required" }),
-  AWS_KMS_ACCESS_SECRET: z
-    .string()
-    .min(1, { message: "AWS_KMS_ACCESS_SECRET is required" }),
-
-  AWS_BUCKET_NAME: z
-    .string()
-    .min(1, { message: "AWS_BUCKET_NAME is required" }),
-  AWS_BUCKET_REGION: z
-    .string()
-    .min(1, { message: "AWS_BUCKET_REGION is required" }),
-  AWS_ACCESS_KEY: z.string().min(1, { message: "AWS_ACCESS_KEY is required" }),
-  AWS_ACCESS_SECRET: z
-    .string()
-    .min(1, { message: "AWS_ACCESS_SECRET is required" }),
-  AWS_CLOUDFRONT_URL: z.url({
-    message: "AWS_CLOUDFRONT_URL must be a valid URL",
+  BASE_URL: z.string({
+    required_error: "BASE_URL is required",
+  }),
+  CLIENT_URL: z.string({
+    required_error: "CLIENT_URL is required",
+  }),
+  YAP_CLIENT_URL: z.string({
+    required_error: "YAP_CLIENT_URL is required",
+  }),
+  YAP_ADMIN_CLIENT_URL: z.string({
+    required_error: "YAP_ADMIN_CLIENT_URL is required",
+  }),
+  MODEL_URL: z.string({
+    required_error: "MODEL_URL is required",
   }),
 
-  VENICE_BASE_URL: z.url({ message: "VENICE_BASE_URL must be a valid URL" }),
-
-  PROVIDER_URL: z.url({
-    message: "PROVIDER_URL must be a valid WebSocket or RPC URL",
+  POSTGRES_USER: z.string({
+    required_error: "POSTGRES_USER is required",
   }),
-  ESCROW_CONTRACT: z
-    .string()
-    .min(1, { message: "ESCROW_CONTRACT is required" }),
+  POSTGRES_PASSWORD: z.string({
+    required_error: "POSTGRES_PASSWORD is required",
+  }),
+  POSTGRES_DB: z.string({
+    required_error: "POSTGRES_DB is required",
+  }),
+  DATABASE_URL: z.string({
+    required_error: "DATABASE_URL is required",
+  }),
 
-  MONAD_ESCROW_CONTRACT: z
-    .string()
-    .min(1, { message: "MONAD_ESCROW_CONTRACT is required" }),
+  REDIS_HOST: z.string({
+    required_error: "REDIS_HOST is required",
+  }),
+  REDIS_PORT: z.string({
+    required_error: "REDIS_PORT is required",
+  }),
+  REDIS_PASSWORD: z.string({
+    required_error: "REDIS_PASSWORD is required",
+  }),
+
+  ALCHEMY_API_KEY: z.string({
+    required_error: "ALCHEMY_API_KEY is required",
+  }),
+  ALCHEMY_BASE_SEPOLIA_KEY: z.string({
+    required_error: "ALCHEMY_BASE_SEPOLIA_KEY is required",
+  }),
+  BASE_SEPOLIA_PROVIDER_URL: z.string({
+    required_error: "BASE_SEPOLIA_PROVIDER_URL is required",
+  }),
+  BASE_SEPOLIA_WS_PROVIDER_URL: z.string({
+    required_error: "BASE_SEPOLIA_WS_PROVIDER_URL is required",
+  }),
+  ALCHEMY_BASE_MAINNET_KEY: z.string({
+    required_error: "ALCHEMY_BASE_MAINNET_KEY is required",
+  }),
+  BASE_MAINNET_PROVIDER_URL: z.string({
+    required_error: "BASE_MAINNET_PROVIDER_URL is required",
+  }),
+  BASE_MAINNET_WS_PROVIDER_URL: z.string({
+    required_error: "BASE_MAINNET_WS_PROVIDER_URL is required",
+  }),
+  ALCHEMY_MONAD_TESTNET_KEY: z.string({
+    required_error: "ALCHEMY_MONAD_TESTNET_KEY is required",
+  }),
+  MONAD_PROVIDER_URL: z.string({
+    required_error: "MONAD_PROVIDER_URL is required",
+  }),
+  MONAD_WS_PROVIDER_URL: z.string({
+    required_error: "MONAD_WS_PROVIDER_URL is required",
+  }),
+
+  AWS_SECRETS_MANAGER_SECRET_NAME: z.string({
+    required_error: "AWS_SECRETS_MANAGER_SECRET_NAME is required",
+  }),
+  AWS_KMS_REGION: z.string({
+    required_error: "AWS_KMS_REGION is required",
+  }),
+  AWS_KMS_ACCESS_KEY: z.string({
+    required_error: "AWS_KMS_ACCESS_KEY is required",
+  }),
+  AWS_KMS_ACCESS_SECRET: z.string({
+    required_error: "AWS_KMS_ACCESS_SECRET is required",
+  }),
+
+  AWS_BUCKET_NAME: z.string({
+    required_error: "AWS_BUCKET_NAME is required",
+  }),
+  AWS_BUCKET_REGION: z.string({
+    required_error: "AWS_BUCKET_REGION is required",
+  }),
+  AWS_ACCESS_KEY: z.string({
+    required_error: "AWS_ACCESS_KEY is required",
+  }),
+  AWS_ACCESS_SECRET: z.string({
+    required_error: "AWS_ACCESS_SECRET is required",
+  }),
+  AWS_CLOUDFRONT_URL: z.string({
+    required_error: "AWS_CLOUDFRONT_URL is required",
+  }),
+
+  VENICE_BASE_URL: z
+    .string({
+      required_error: "VENICE_BASE_URL is required",
+    })
+    .url({
+      message: "VENICE_BASE_URL must be a valid URL",
+    }),
+  VENICE_API_KEY: z.string({
+    required_error: "VENICE_API_KEY is required",
+  }),
+  OPENAI_API_KEY: z.string({
+    required_error: "OPENAI_API_KEY is required",
+  }),
 });
 
 export default function parseEnv() {
   try {
-    envSchema.parse(Bun.env);
+    return envSchema.parse(Bun.env);
   } catch (error) {
     console.error("Invalid environment variables: ", error);
     process.exit(1);
