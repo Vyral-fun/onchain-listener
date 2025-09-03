@@ -1,0 +1,75 @@
+import {
+  bigint,
+  bigserial,
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+  varchar,
+} from "drizzle-orm/pg-core";
+import { nanoid } from "nanoid";
+
+export const contractEvents = pgTable(
+  "contract_events",
+  {
+    id: varchar("id").primaryKey().$defaultFn(nanoid),
+
+    jobId: varchar("job_id", { length: 255 }).notNull(),
+    chainId: integer("chain_id").notNull(),
+    contractAddress: varchar("contract_address", { length: 42 }).notNull(),
+    eventName: varchar("event_name", { length: 255 }).notNull(),
+
+    sender: varchar("sender", { length: 42 }).notNull(),
+    receiver: varchar("receiver", { length: 42 }).notNull(),
+    value: bigint("value", { mode: "bigint" }).notNull(),
+
+    transactionHash: varchar("transaction_hash", { length: 66 }).notNull(),
+    blockNumber: bigint("block_number", { mode: "bigint" }).notNull(),
+
+    detectedAt: timestamp("detected_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("idx_job_detected").on(table.jobId, table.detectedAt),
+    index("idx_contract_detected").on(table.contractAddress, table.detectedAt),
+    index("idx_sender_receiver").on(table.sender, table.receiver),
+  ]
+);
+
+export const jobs = pgTable("jobs", {
+  id: varchar("id").primaryKey(),
+  contractAddress: varchar("contract_address", { length: 42 }).notNull(),
+  chainId: integer("chain_id").notNull(),
+  events: text("events").array().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+});
+
+export const contractListeners = pgTable(
+  "contract_listeners",
+  {
+    contractAddress: varchar("contract_address", { length: 42 }).primaryKey(),
+    chainId: integer("chain_id").notNull(),
+    abi: jsonb("abi").notNull(),
+    subscribedJobs: text("subscribed_jobs").array().notNull(),
+    eventsBeingListened: text("events_being_listened").array().notNull(),
+    startTime: timestamp("start_time").defaultNow().notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+  },
+  (table) => [
+    unique("uq_chain_contract").on(table.chainId, table.contractAddress),
+  ]
+);
+
+export const jobSubscriptions = pgTable("job_subscriptions", {
+  jobId: varchar("job_id").primaryKey().notNull(),
+  contractAddress: varchar("contract_address", { length: 42 }).notNull(),
+  eventsFilter: text("events_filter").array(),
+  chainId: integer("chain_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  lastEventAt: timestamp("last_event_at"),
+  isActive: boolean("is_active").default(true).notNull(),
+});
