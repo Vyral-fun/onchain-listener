@@ -129,7 +129,7 @@ export async function getJobEvents(c: Context) {
         id: jobs.id,
         contractAddress: jobs.contractAddress,
         chainId: jobs.chainId,
-        events: jobs.events,
+        eventsListenedOn: jobs.events,
         createdAt: jobs.createdAt,
         isActive: jobs.isActive,
       })
@@ -171,7 +171,7 @@ export async function getAllJobs(c: Context) {
         id: jobs.id,
         contractAddress: jobs.contractAddress,
         chainId: jobs.chainId,
-        events: jobs.events,
+        eventsListenedOn: jobs.events,
         createdAt: jobs.createdAt,
         isActive: jobs.isActive,
       })
@@ -205,7 +205,7 @@ export async function getJobEventAddresses(c: Context) {
         id: jobs.id,
         contractAddress: jobs.contractAddress,
         chainId: jobs.chainId,
-        events: jobs.events,
+        eventsListenedOn: jobs.events,
         createdAt: jobs.createdAt,
         isActive: jobs.isActive,
       })
