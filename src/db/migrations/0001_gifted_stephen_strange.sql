@@ -1,0 +1,1 @@
+ALTER TABLE "contract_events" ALTER COLUMN "value" DROP NOT NULL;

@@ -5,6 +5,7 @@ import {
   index,
   integer,
   jsonb,
+  numeric,
   pgTable,
   text,
   timestamp,
@@ -17,19 +18,19 @@ export const contractEvents = pgTable(
   "contract_events",
   {
     id: varchar("id").primaryKey().$defaultFn(nanoid),
-
     jobId: varchar("job_id", { length: 255 }).notNull(),
     chainId: integer("chain_id").notNull(),
     contractAddress: varchar("contract_address", { length: 42 }).notNull(),
-    eventName: varchar("event_name", { length: 255 }).notNull(),
-
-    sender: varchar("sender", { length: 42 }).notNull(),
-    receiver: varchar("receiver", { length: 42 }).notNull(),
-    value: bigint("value", { mode: "bigint" }).notNull(),
-
+    eventName: varchar("event_name", { length: 255 }),
+    sender: varchar("sender", { length: 42 }).default(
+      "0x0000000000000000000000000000000000000000"
+    ),
+    receiver: varchar("receiver", { length: 42 }).default(
+      "0x0000000000000000000000000000000000000000"
+    ),
+    value: numeric("value", { mode: "bigint" }),
     transactionHash: varchar("transaction_hash", { length: 66 }).notNull(),
     blockNumber: bigint("block_number", { mode: "bigint" }).notNull(),
-
     detectedAt: timestamp("detected_at").defaultNow().notNull(),
   },
   (table) => [
