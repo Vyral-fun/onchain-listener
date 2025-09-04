@@ -21,6 +21,17 @@ export interface ContractListener {
   stop: () => Promise<void>;
 }
 
+export type NormalizedEvent = {
+  name: string;
+  address: string;
+  sender?: string;
+  receiver?: string;
+  value?: bigint;
+  blockNumber: number;
+  transactionHash: string;
+  rawArgs: any[];
+};
+
 const runtimeListeners: Record<string, ContractListener> = {};
 
 export async function subscribeJobToContractListener(
@@ -157,45 +168,48 @@ async function updateListenerEvents(
   listener: ContractListener,
   eventsToListenFor: string[]
 ) {
-  const { contract } = listener;
+  const { contract, provider, abi } = listener;
 
   await contract.removeAllListeners();
+
+  const iface = new ethers.Interface(abi);
 
   const requiredEvents = eventsToListenFor.length
     ? new Set(eventsToListenFor)
     : new Set(["*"]);
 
   if (requiredEvents.has("*")) {
-    contract.on("*", async (event) => {
-      console.log("  Event Detected:");
-      console.log("  Event Name:", event.fragment.name);
-      console.log("  Args:", event.args);
-      console.log("  Block Number:", event.log.blockNumber);
-      console.log("  Transaction Hash:", event.log.transactionHash);
-      console.log("  Contract Address:", event.log.address);
-      console.log("sender:", event.args.from);
-      console.log("receiver:", event.args.to);
-      console.log("value:", BigInt(event.args.value.toString()));
-      console.log("  Chain ID:", listener.chainId);
-      console.log("---");
-      await routeEventToJobs(event, listener);
+    const filter = { address: contract.target };
+    provider.on(filter, async (log) => {
+      try {
+        const parsed = iface.parseLog({
+          topics: log.topics,
+          data: log.data,
+        });
+        if (!parsed) {
+          console.log("⚠️ Unrecognized event log:", log);
+          return;
+        }
+        const normalizedEvent = normalizeEvent(parsed, log);
+        logEvent(normalizedEvent);
+        await routeEventToJobs(normalizedEvent, listener);
+      } catch (err) {
+        console.log("⚠️ Could not parse log:", err);
+      }
     });
     listener.eventsBeingListened = new Set(["*"]);
   } else {
     requiredEvents.forEach((eventName) => {
       contract.on(eventName, async (...args) => {
         const event = args[args.length - 1];
-        console.log("  Event Detected:");
-        console.log("  Event Name:", event.fragment.name);
-        console.log("  Args:", event.args);
-        console.log("  Block Number:", event.log.blockNumber);
-        console.log("  Transaction Hash:", event.log.transactionHash);
-        console.log("sender:", event.args.from);
-        console.log("receiver:", event.args.to);
-        console.log("value:", BigInt(event.args.value.toString()));
-        console.log("  Chain ID:", listener.chainId);
-        console.log("---");
-        await routeEventToJobs(event, listener);
+        const parsed = iface.parseLog(event);
+        if (!parsed) {
+          console.log("⚠️ Unrecognized event log:", event);
+          return;
+        }
+        const normalizedEvent = normalizeEvent(parsed, event);
+        logEvent(normalizedEvent);
+        await routeEventToJobs(normalizedEvent, listener);
       });
     });
     listener.eventsBeingListened = new Set(requiredEvents);
@@ -221,8 +235,11 @@ function calculateRequiredEvents(
   return requiredEvents;
 }
 
-async function routeEventToJobs(event: any, listener: ContractListener) {
-  const eventName = event.fragment.name;
+async function routeEventToJobs(
+  event: NormalizedEvent,
+  listener: ContractListener
+) {
+  const eventName = event.name;
 
   const jobRows = await db
     .select({
@@ -232,7 +249,7 @@ async function routeEventToJobs(event: any, listener: ContractListener) {
     .from(jobs)
     .where(
       and(
-        eq(jobs.contractAddress, event.log.address),
+        eq(jobs.contractAddress, event.address),
         eq(jobs.chainId, listener.chainId)
       )
     );
@@ -254,7 +271,7 @@ async function routeEventToJobs(event: any, listener: ContractListener) {
 }
 
 async function storeEventForJobs(
-  event: any,
+  event: NormalizedEvent,
   jobIds: string[],
   chainId: number
 ) {
@@ -262,13 +279,13 @@ async function storeEventForJobs(
     const rows = jobIds.map((jobId) => ({
       jobId,
       chainId: chainId,
-      contractAddress: event.log.address,
-      eventName: event.fragment.name,
-      sender: event.args.from,
-      receiver: event.args.to,
-      value: BigInt(event.args.value.toString()),
-      blockNumber: BigInt(event.log.blockNumber),
-      transactionHash: event.log.transactionHash,
+      contractAddress: event.address,
+      eventName: event.name,
+      sender: event.sender,
+      receiver: event.receiver,
+      value: event.value!,
+      blockNumber: BigInt(event.blockNumber),
+      transactionHash: event.transactionHash,
     }));
 
     await db.transaction(async (tx) => {
@@ -355,4 +372,28 @@ export function validateEvents(
   });
 
   return { valid, invalid };
+}
+
+function normalizeEvent(parsed: any, log: any): NormalizedEvent {
+  return {
+    name: parsed.fragment?.name || parsed.name,
+    address: log.address,
+    value: parsed?.args?.value
+      ? BigInt(parsed.args.value.toString())
+      : undefined,
+    sender: parsed?.args?.from ?? parsed.args?.[0],
+    receiver: parsed?.args?.to ?? parsed.args?.[1],
+    blockNumber: log.blockNumber,
+    transactionHash: log.transactionHash,
+    rawArgs: parsed?.args,
+  };
+}
+
+function logEvent(event: NormalizedEvent) {
+  console.log("  Event Name:", event.name);
+  console.log("  Contract Address:", event.address);
+  if (event.sender) console.log("  Sender:", event.sender);
+  if (event.receiver) console.log("  Receiver:", event.receiver);
+  if (event.value) console.log("  Value:", event.value);
+  console.log("---");
 }
