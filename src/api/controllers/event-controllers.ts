@@ -230,7 +230,10 @@ export async function getJobEventAddresses(c: Context) {
     );
 
     const filteredAddresses = uniqueAddresses.filter(
-      (addr) => addr !== job[0]!.contractAddress && addr !== NULL_ADDRESS
+      (addr) =>
+        addr !== job[0]!.contractAddress &&
+        addr !== NULL_ADDRESS &&
+        addr!.startsWith("0x")
     );
 
     return c.json({ success: true, addresses: filteredAddresses }, 200);
