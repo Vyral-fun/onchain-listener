@@ -375,14 +375,51 @@ export function validateEvents(
 }
 
 function normalizeEvent(parsed: any, log: any): NormalizedEvent {
+  const isAddress = (value: any): boolean => {
+    try {
+      return ethers.isAddress(value);
+    } catch {
+      return false;
+    }
+  };
+
+  const contractAddress = log.address.toLowerCase();
+  let sender: string | undefined;
+  let receiver: string | undefined;
+
+  if (parsed.args?.from && isAddress(parsed.args.from)) {
+    const fromAddress = parsed.args.from.toLowerCase();
+    if (fromAddress !== contractAddress) {
+      sender = parsed.args.from;
+    }
+  }
+  if (parsed.args?.to && isAddress(parsed.args.to)) {
+    const toAddress = parsed.args.to.toLowerCase();
+    if (toAddress !== contractAddress) {
+      receiver = parsed.args.to;
+    }
+  }
+
+  if ((!sender || !receiver) && parsed.args) {
+    const addresses = Object.values(parsed.args).filter(
+      (v: any): v is string => {
+        if (!isAddress(v)) return false;
+        return (v as string).toLowerCase() !== contractAddress;
+      }
+    );
+
+    if (!sender && addresses.length > 0) sender = addresses[0];
+    if (!receiver && addresses.length > 1) receiver = addresses[1];
+  }
+
   return {
     name: parsed.fragment?.name || parsed.name,
     address: log.address,
     value: parsed?.args?.value
       ? BigInt(parsed.args.value.toString())
       : undefined,
-    sender: parsed?.args?.from ?? parsed.args?.[0],
-    receiver: parsed?.args?.to ?? parsed.args?.[1],
+    sender,
+    receiver,
     blockNumber: log.blockNumber,
     transactionHash: log.transactionHash,
     rawArgs: parsed?.args,
