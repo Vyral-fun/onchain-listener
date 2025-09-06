@@ -45,6 +45,8 @@ export const jobs = pgTable("jobs", {
   contractAddress: varchar("contract_address", { length: 42 }).notNull(),
   chainId: integer("chain_id").notNull(),
   events: text("events").array().notNull(),
+  eventAddresses: varchar("event_address", { length: 42 }).array(),
+  abi: jsonb("abi").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   isActive: boolean("is_active").default(true).notNull(),
 });

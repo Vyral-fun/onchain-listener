@@ -2,7 +2,8 @@ import { ethers } from "ethers";
 import { db } from "@/db";
 import { contractEvents, contractListeners, jobs } from "@/db/schema/event";
 import { getEcosystemDetails } from "@/utils/ecosystem";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
+import { NULL_ADDRESS } from "@/utils/constants";
 
 export interface JobEventSubscription {
   jobId: string;
@@ -53,6 +54,7 @@ export async function subscribeJobToContractListener(
   await db.insert(jobs).values({
     id: jobId,
     chainId,
+    abi,
     contractAddress,
     events: eventsToListenFor,
   });
@@ -346,6 +348,32 @@ export async function unsubscribeJobFromContractListener(jobId: string) {
       .set({ subscribedJobs: jobRows.map((j) => j.id) })
       .where(eq(contractListeners.contractAddress, contractAddress));
   }
+
+  const addresses = await db
+    .select({
+      sender: contractEvents.sender,
+      receiver: contractEvents.receiver,
+    })
+    .from(contractEvents)
+    .where(eq(contractEvents.jobId, jobId))
+    .orderBy(desc(contractEvents.detectedAt));
+
+  const uniqueAddresses = Array.from(
+    new Set(addresses.flatMap((addr) => [addr.sender, addr.receiver]))
+  );
+
+  const filteredAddresses = uniqueAddresses.filter(
+    (addr): addr is string =>
+      !!addr &&
+      addr !== contractAddress &&
+      addr !== NULL_ADDRESS &&
+      addr.startsWith("0x")
+  );
+
+  const result = await db
+    .update(jobs)
+    .set({ eventAddresses: filteredAddresses })
+    .where(eq(jobs.id, jobId));
 
   return true;
 }
