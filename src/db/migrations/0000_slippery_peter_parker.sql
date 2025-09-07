@@ -3,10 +3,10 @@ CREATE TABLE "contract_events" (
 	"job_id" varchar(255) NOT NULL,
 	"chain_id" integer NOT NULL,
 	"contract_address" varchar(42) NOT NULL,
-	"event_name" varchar(255) NOT NULL,
-	"sender" varchar(42) NOT NULL,
-	"receiver" varchar(42) NOT NULL,
-	"value" bigint NOT NULL,
+	"event_name" varchar(255),
+	"sender" varchar(42) DEFAULT '0x0000000000000000000000000000000000000000',
+	"receiver" varchar(42) DEFAULT '0x0000000000000000000000000000000000000000',
+	"value" numeric,
 	"transaction_hash" varchar(66) NOT NULL,
 	"block_number" bigint NOT NULL,
 	"detected_at" timestamp DEFAULT now() NOT NULL
@@ -38,6 +38,8 @@ CREATE TABLE "jobs" (
 	"contract_address" varchar(42) NOT NULL,
 	"chain_id" integer NOT NULL,
 	"events" text[] NOT NULL,
+	"event_address" varchar(42)[],
+	"abi" jsonb NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"is_active" boolean DEFAULT true NOT NULL
 );

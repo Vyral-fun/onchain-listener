@@ -1,5 +1,5 @@
 {
-  "id": "5ded12de-6e6e-42f3-adb2-78e1871dffcc",
+  "id": "a15d1127-f46a-4a06-ae52-ce1b046d8478",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -36,25 +36,27 @@
           "name": "event_name",
           "type": "varchar(255)",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "sender": {
           "name": "sender",
           "type": "varchar(42)",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false,
+          "default": "'0x0000000000000000000000000000000000000000'"
         },
         "receiver": {
           "name": "receiver",
           "type": "varchar(42)",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false,
+          "default": "'0x0000000000000000000000000000000000000000'"
         },
         "value": {
           "name": "value",
-          "type": "bigint",
+          "type": "numeric",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "transaction_hash": {
           "name": "transaction_hash",
@@ -296,6 +298,18 @@
         "events": {
           "name": "events",
           "type": "text[]",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event_address": {
+          "name": "event_address",
+          "type": "varchar(42)[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "abi": {
+          "name": "abi",
+          "type": "jsonb",
           "primaryKey": false,
           "notNull": true
         },
