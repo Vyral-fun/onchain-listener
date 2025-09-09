@@ -192,7 +192,7 @@ async function updateListenerEvents(
           console.log("⚠️ Unrecognized event log:", log);
           return;
         }
-        const normalizedEvent = normalizeEvent(parsed, log);
+        const normalizedEvent = await normalizeEvent(parsed, log, provider);
         logEvent(normalizedEvent);
         await routeEventToJobs(normalizedEvent, listener);
       } catch (err) {
@@ -209,7 +209,7 @@ async function updateListenerEvents(
           console.log("⚠️ Unrecognized event log:", event);
           return;
         }
-        const normalizedEvent = normalizeEvent(parsed, event);
+        const normalizedEvent = await normalizeEvent(parsed, event, provider);
         logEvent(normalizedEvent);
         await routeEventToJobs(normalizedEvent, listener);
       });
@@ -402,7 +402,11 @@ export function validateEvents(
   return { valid, invalid };
 }
 
-function normalizeEvent(parsed: any, log: any): NormalizedEvent {
+async function normalizeEvent(
+  parsed: any,
+  log: any,
+  provider: ethers.Provider
+): Promise<NormalizedEvent> {
   const isAddress = (value: any): boolean => {
     try {
       return ethers.isAddress(value);
@@ -440,12 +444,22 @@ function normalizeEvent(parsed: any, log: any): NormalizedEvent {
     if (!receiver && addresses.length > 1) receiver = addresses[1];
   }
 
+  let value: bigint | undefined;
+  if (parsed?.args?.value) {
+    value = BigInt(parsed.args.value.toString());
+  } else {
+    const tx = await provider.getTransaction(log.transactionHash);
+    if (tx && tx.value && tx.value > 0n) {
+      value = tx.value;
+      sender = tx.from;
+      receiver = tx.to || receiver;
+    }
+  }
+
   return {
     name: parsed.fragment?.name || parsed.name,
     address: log.address,
-    value: parsed?.args?.value
-      ? BigInt(parsed.args.value.toString())
-      : undefined,
+    value,
     sender,
     receiver,
     blockNumber: log.blockNumber,
