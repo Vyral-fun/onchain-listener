@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "alchemy-sdk": "^3.6.3",
+    "bullmq": "^5.58.5",
     "drizzle-kit": "^0.31.4",
     "drizzle-orm": "^0.44.5",
     "ethers": "^6.15.0",
