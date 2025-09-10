@@ -10,7 +10,11 @@ import {
   unsubscribeJobFromContractListener,
 } from "@/services/contract-listener";
 import { db } from "@/db";
-import { contractEvents, jobs } from "@/db/schema/event";
+import {
+  contractEvents,
+  jobs,
+  yappersDerivedAddressActivity,
+} from "@/db/schema/event";
 import { eq, desc } from "drizzle-orm";
 import { NULL_ADDRESS } from "@/utils/constants";
 
@@ -239,6 +243,52 @@ export async function getJobEventAddresses(c: Context) {
     return c.json({ success: true, addresses: filteredAddresses }, 200);
   } catch (error) {
     console.error("Yap.listeners.getJobEventAddresses.error: ", error);
+    return c.json({ error: "Internal server error" }, 500);
+  }
+}
+
+export async function getJobClusters(c: Context) {
+  const jobId = c.req.param("jobId");
+  const validatedParams = z
+    .object({
+      jobId: z.string().length(21, {
+        message: "Job id must be 21 characters long",
+      }),
+    })
+    .safeParse({ jobId });
+
+  if (!validatedParams.success) {
+    return c.json({ error: validatedParams.error }, 400);
+  }
+
+  try {
+    const activities = await db
+      .select()
+      .from(yappersDerivedAddressActivity)
+      .where(eq(yappersDerivedAddressActivity.jobId, jobId));
+
+    const clustersMap: Record<string, typeof activities> = {};
+    for (const act of activities) {
+      if (!clustersMap[act.yapperid]) {
+        clustersMap[act.yapperid] = [];
+      }
+      clustersMap[act.yapperid]!.push(act);
+    }
+
+    const clusters = Object.values(clustersMap).map((acts) => {
+      const own = acts.find(
+        (a) => a.yapperAddress.toLowerCase() === a.address.toLowerCase()
+      );
+      const others = acts.filter(
+        (a) => a.yapperAddress.toLowerCase() !== a.address.toLowerCase()
+      );
+
+      return own ? [own, ...others] : acts;
+    });
+
+    return c.json({ clusters }, 200);
+  } catch (error) {
+    console.error("Yap.listeners.getJobClusters.error: ", error);
     return c.json({ error: "Internal server error" }, 500);
   }
 }
