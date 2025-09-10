@@ -76,3 +76,19 @@ export const jobSubscriptions = pgTable("job_subscriptions", {
   lastEventAt: timestamp("last_event_at"),
   isActive: boolean("is_active").default(true).notNull(),
 });
+
+export const yappersDerivedAddressActivity = pgTable(
+  "yappers_derived_address_activity",
+  {
+    id: varchar("id").primaryKey().$defaultFn(nanoid),
+    yapperid: varchar("yapperid").notNull(),
+    yapperUserId: varchar("yapper_user_id").notNull(),
+    jobId: varchar("job_id").notNull(),
+    yapperAddress: varchar("yapper_address", { length: 42 }).notNull(),
+    address: varchar("address", { length: 42 }).notNull(),
+    event: varchar("event", { length: 255 }),
+    value: numeric("value", { mode: "bigint" }),
+    transactionHash: varchar("transaction_hash", { length: 66 }),
+    interacted: boolean("interacted").default(false),
+  }
+);
