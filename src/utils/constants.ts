@@ -1,5 +1,7 @@
 import { Alchemy, Network } from "alchemy-sdk";
 
+export const BATCH_SIZE = 500;
+
 export const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 export const ECOSYSTEM_DETAILS = [
@@ -28,10 +30,3 @@ export const ECOSYSTEM_DETAILS = [
     wsUrl: Bun.env.MONAD_WS_PROVIDER_URL,
   },
 ];
-
-export const config = {
-  apiKey: Bun.env.ALCHEMY_API_KEY,
-  network: Network.ETH_MAINNET,
-};
-
-export const alchemy = new Alchemy(config);
