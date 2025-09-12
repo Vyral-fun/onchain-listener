@@ -10,6 +10,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   varchar,
 } from "drizzle-orm/pg-core";
 import { nanoid } from "nanoid";
@@ -91,4 +92,26 @@ export const yappersDerivedAddressActivity = pgTable(
     transactionHash: varchar("transaction_hash", { length: 66 }),
     interacted: boolean("interacted").default(false),
   }
+);
+
+export const yapperReferrals = pgTable(
+  "yapper_referrals",
+  {
+    id: varchar("id").primaryKey().$defaultFn(nanoid),
+    yapperProfileId: varchar("yapper_profile_id").notNull(),
+    referralCode: varchar("referral_code").notNull(),
+    followerUsername: varchar("follower_username").notNull(),
+    followerName: varchar("follower_name").notNull(),
+    followerProfileImage: varchar("follower_profile_image"),
+    followerWalletAddress: varchar("follower_wallet_address").notNull(),
+
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("unique_referral_code_follower").on(
+      table.referralCode,
+      table.followerWalletAddress
+    ),
+  ]
 );
