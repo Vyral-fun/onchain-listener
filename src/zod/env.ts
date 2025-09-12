@@ -123,6 +123,10 @@ export const envSchema = z.object({
   OPENAI_API_KEY: z.string({
     required_error: "OPENAI_API_KEY is required",
   }),
+
+  TWITTER_API_KEY: z.string({
+    required_error: "TWITTER_API_KEY is required",
+  }),
 });
 
 export default function parseEnv() {
