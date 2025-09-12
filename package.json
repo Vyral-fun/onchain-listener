@@ -11,6 +11,7 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@coinbase/onchainkit": "^0.38.19",
     "alchemy-sdk": "^3.6.3",
     "bullmq": "^5.58.5",
     "drizzle-kit": "^0.31.4",
@@ -21,6 +22,7 @@
     "nanoid": "^5.1.5",
     "pg": "^8.16.3",
     "postgres": "^3.4.7",
+    "viem": "^2.37.5",
     "zod": "^3.24.2"
   },
   "scripts": {
