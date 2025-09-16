@@ -1,9 +1,10 @@
 import { contractEvents, jobs } from "@/db/schema/event";
-import { getJobYaps, type Yap } from "./yappers";
+import { type Yap } from "./yappers";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { recordYapperClusterQueue } from "./queue";
 import { unsubscribeJobFromContractListener } from "./listener-service";
+import { getJobYaps } from "@/api/yap/yap";
 
 export interface ContractJobEvents {
   jobId: string;
