@@ -1,9 +1,14 @@
 import { db } from "@/db";
-import { checkENS, getAddressesInteractedWith } from "./address";
+import { checkENS, getOnchainAddressesInteractedWith } from "./address";
 import type { ContractJobEvents } from "./job-service";
-import { getTwitterFollowersName } from "./twitter";
+import { getTwitterFollowersName } from "../api/twitter/twitter";
 import { BATCH_SIZE, NULL_ADDRESS } from "@/utils/constants";
-import { yappersDerivedAddressActivity } from "@/db/schema/event";
+import {
+  yapperReferrals,
+  yappersDerivedAddressActivity,
+} from "@/db/schema/event";
+import { getYapMarketAddresses } from "@/api/yap/yap";
+import { eq } from "drizzle-orm";
 
 export interface Yap {
   yapperid: string;
@@ -22,10 +27,21 @@ export async function recordYapperClusterActivity(
     yap.twitterUsername
   );
 
+  const referralData = await getYapperReferralsData(yap.yapperid);
+  const referralAddresses = referralData.map((r) => r.walletAddresses);
+  const referralTwitterNames = referralData.map((r) => r.names);
+
+  const allTwitterNamesSet = new Set<string>([
+    ...(twitterFollowersNames ?? []),
+    ...(referralTwitterNames ?? []),
+  ]);
+
+  const allTwitterNames = [...allTwitterNamesSet];
+
   const [ensResults, onchainAddresses, yapMarketAddresses] = await Promise.all([
     checkENS(twitterFollowersNames),
-    getAddressesInteractedWith(yap.walletAddress, chainId),
-    getYapMarketAddresses(twitterFollowersNames),
+    getOnchainAddressesInteractedWith(yap.walletAddress, chainId),
+    getYapMarketAddresses(allTwitterNames),
   ]);
 
   const twitterAddresses = ensResults
@@ -42,6 +58,7 @@ export async function recordYapperClusterActivity(
     ...(twitterAddresses || []),
     ...(addressesData.allAddresses || []),
     ...(yapMarketAddresses || []),
+    ...(referralAddresses || []),
   ];
 
   const filtered = Array.from(
@@ -78,10 +95,20 @@ export async function recordYapperClusterActivity(
   return records;
 }
 
-export async function getYapMarketAddresses(twitterNames: string[]) {
-  return [];
-}
+export async function getYapperReferralsData(yapperId: string) {
+  try {
+    const referrals = await db
+      .select({
+        names: yapperReferrals.followerName,
+        usernames: yapperReferrals.followerUsername,
+        walletAddresses: yapperReferrals.followerWalletAddress,
+      })
+      .from(yapperReferrals)
+      .where(eq(yapperReferrals.yapperProfileId, yapperId));
 
-export async function getJobYaps(jobId: string): Promise<Yap[]> {
-  return [];
+    return referrals;
+  } catch (error: any) {
+    console.error("Yap.onchainListener.getYapperReferrals.error:", error);
+    return [];
+  }
 }
