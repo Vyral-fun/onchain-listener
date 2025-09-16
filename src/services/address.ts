@@ -1,3 +1,4 @@
+import { db } from "@/db";
 import { NULL_ADDRESS } from "@/utils/constants";
 import { getAlchemyInstance, getEcosystemDetails } from "@/utils/ecosystem";
 import { AssetTransfersCategory } from "alchemy-sdk";
@@ -5,7 +6,7 @@ import { Interface } from "ethers";
 import { ethers } from "ethers";
 import { getAddress } from "viem";
 
-export async function getAddressesInteractedWith(
+export async function getOnchainAddressesInteractedWith(
   address: string,
   chainId: number
 ) {
