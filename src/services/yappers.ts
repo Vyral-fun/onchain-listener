@@ -4,7 +4,7 @@ import type { ContractJobEvents } from "./job-service";
 import { getTwitterFollowersName } from "../api/twitter/twitter";
 import { BATCH_SIZE, NULL_ADDRESS } from "@/utils/constants";
 import {
-  yapperReferrals,
+  onchainJobInvites,
   yappersDerivedAddressActivity,
 } from "@/db/schema/event";
 import { getYapMarketAddresses } from "@/api/yap/yap";
@@ -27,13 +27,15 @@ export async function recordYapperClusterActivity(
     yap.twitterUsername
   );
 
-  const referralData = await getYapperReferralsData(yap.yapperid);
-  const referralAddresses = referralData.map((r) => r.walletAddresses);
-  const referralTwitterNames = referralData.map((r) => r.names);
+  const onchainInvitesData = await getYapperOnchainInvitesData(yap.yapperid);
+  const onchainInvitesAddresses = onchainInvitesData.map(
+    (r) => r.walletAddresses
+  );
+  const onchainInvitesTwitterNames = onchainInvitesData.map((r) => r.names);
 
   const allTwitterNamesSet = new Set<string>([
     ...(twitterFollowersNames ?? []),
-    ...(referralTwitterNames ?? []),
+    ...(onchainInvitesTwitterNames ?? []),
   ]);
 
   const allTwitterNames = [...allTwitterNamesSet];
@@ -58,7 +60,7 @@ export async function recordYapperClusterActivity(
     ...(twitterAddresses || []),
     ...(addressesData.allAddresses || []),
     ...(yapMarketAddresses || []),
-    ...(referralAddresses || []),
+    ...(onchainInvitesAddresses || []),
   ];
 
   const filtered = Array.from(
@@ -95,20 +97,22 @@ export async function recordYapperClusterActivity(
   return records;
 }
 
-export async function getYapperReferralsData(yapperId: string) {
+export async function getYapperOnchainInvitesData(yapperId: string) {
   try {
     const referrals = await db
       .select({
-        names: yapperReferrals.followerName,
-        usernames: yapperReferrals.followerUsername,
-        walletAddresses: yapperReferrals.followerWalletAddress,
+        names: onchainJobInvites.inviteeXName,
+        walletAddresses: onchainJobInvites.inviteeWalletAdress,
       })
-      .from(yapperReferrals)
-      .where(eq(yapperReferrals.yapperProfileId, yapperId));
+      .from(onchainJobInvites)
+      .where(eq(onchainJobInvites.yapperProfileId, yapperId));
 
     return referrals;
   } catch (error: any) {
-    console.error("Yap.onchainListener.getYapperReferrals.error:", error);
+    console.error(
+      "Yap.onchainListener.getYapperOnchainInvitesData.error:",
+      error
+    );
     return [];
   }
 }
