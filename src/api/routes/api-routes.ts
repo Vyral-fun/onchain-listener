@@ -7,20 +7,19 @@ import {
   startContractEventListener,
 } from "../controllers/event-controllers";
 import {
-  addYapperReferral,
-  getYapperReferrals,
+  joinOnchainInvite,
+  getYapperOnchainInvites,
 } from "../controllers/yapper-controllers";
 
 const ApiRoutes = new Hono();
 
 ApiRoutes.post("/events/:jobId/start", startContractEventListener);
-// ApiRoutes.post("/events/:jobId/stop", stopContractEventListener);
 ApiRoutes.get("/:jobId/events", getJobEvents);
 ApiRoutes.get("/events/jobs", getAllJobs);
 ApiRoutes.get("/events/:jobId/addresses", getJobEventAddresses);
 ApiRoutes.get("/events/:jobId/clusters", getJobClusters);
 
-ApiRoutes.post("/referrals", addYapperReferral);
-ApiRoutes.get("/referrals/:yapperId", getYapperReferrals);
+ApiRoutes.post("/yapper/invites/join/:yapperId", joinOnchainInvite);
+ApiRoutes.get("/yapper/invites/:yapperId", getYapperOnchainInvites);
 
 export default ApiRoutes;
