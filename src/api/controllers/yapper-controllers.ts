@@ -1,53 +1,50 @@
-// src/api/controllers/referrals.ts
 import type { Context } from "hono";
 import { eq } from "drizzle-orm";
 import { db } from "../../db";
-import { yapperReferrals } from "@/db/schema/event";
+import { onchainJobInvites } from "@/db/schema/event";
 import z from "zod";
-import { addYapperReferralSchema } from "@/zod/yapper";
+import { joinOnchainInviteSchema } from "@/zod/yapper";
 
-export async function addYapperReferral(c: Context) {
+export async function joinOnchainInvite(c: Context) {
+  const yapperProfileId = c.req.param("yapperId");
+  const validateParams = z
+    .string()
+    .min(21, { message: "Yapper id is required." })
+    .safeParse(yapperProfileId);
+  if (!validateParams.success) {
+    return c.json({ error: validateParams.error.message }, 400);
+  }
+
   try {
     const body = await c.req.json();
-    const {
-      yapperProfileId,
-      referralCode,
-      followerUsername,
-      followerName,
-      followerProfileImage,
-      followerWalletAddress,
-    } = body;
+    const { referralCode, name, walletAddress } = body;
 
-    const parsed = addYapperReferralSchema.safeParse(body);
+    const parsed = joinOnchainInviteSchema.safeParse(body);
     if (!parsed.success) {
       return c.json(
-        { error: "Validation failed", details: parsed.error.flatten() },
+        { error: "Validation failed", details: parsed.error.message },
         400
       );
     }
 
-    const referralData = parsed.data;
-
-    const [referral] = await db
-      .insert(yapperReferrals)
+    const [invite] = await db
+      .insert(onchainJobInvites)
       .values({
         yapperProfileId,
         referralCode,
-        followerUsername,
-        followerName,
-        followerProfileImage,
-        followerWalletAddress,
+        inviteeXName: name,
+        inviteeWalletAdress: walletAddress,
       })
       .returning();
 
-    return c.json({ success: true, referral }, 201);
+    return c.json({ success: true, invite }, 201);
   } catch (error: any) {
-    console.error("Yap.onchainListener.addYapperReferral.error:", error);
+    console.error("Yap.onchainListener.joinOnchainInvite.error:", error);
     return c.json({ error: "Internal server error" }, 500);
   }
 }
 
-export async function getYapperReferrals(c: Context) {
+export async function getYapperOnchainInvites(c: Context) {
   try {
     const yapperId = c.req.param("yapperId");
     const validateProfileId = z
@@ -63,14 +60,14 @@ export async function getYapperReferrals(c: Context) {
       return c.json({ error: "Invalid profileId" }, 400);
     }
 
-    const referrals = await db
+    const invites = await db
       .select()
-      .from(yapperReferrals)
-      .where(eq(yapperReferrals.yapperProfileId, yapperId));
+      .from(onchainJobInvites)
+      .where(eq(onchainJobInvites.yapperProfileId, yapperId));
 
-    return c.json({ success: true, referrals }, 200);
+    return c.json({ success: true, invites }, 200);
   } catch (error: any) {
-    console.error("Yap.onchainListener.getYapperReferrals.error:", error);
+    console.error("Yap.onchainListener.getYapperOnchainInvites.error:", error);
     return c.json({ error: "Internal server error" }, 500);
   }
 }
