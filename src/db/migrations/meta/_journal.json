@@ -22,6 +22,13 @@
       "when": 1757684877943,
       "tag": "0002_premium_mindworm",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1758191889298,
+      "tag": "0003_fat_killmonger",
+      "breakpoints": true
     }
   ]
 }

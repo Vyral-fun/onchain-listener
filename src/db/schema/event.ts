@@ -94,24 +94,22 @@ export const yappersDerivedAddressActivity = pgTable(
   }
 );
 
-export const yapperReferrals = pgTable(
-  "yapper_referrals",
+export const onchainJobInvites = pgTable(
+  "onchain_job_invites",
   {
     id: varchar("id").primaryKey().$defaultFn(nanoid),
     yapperProfileId: varchar("yapper_profile_id").notNull(),
     referralCode: varchar("referral_code").notNull(),
-    followerUsername: varchar("follower_username").notNull(),
-    followerName: varchar("follower_name").notNull(),
-    followerProfileImage: varchar("follower_profile_image"),
-    followerWalletAddress: varchar("follower_wallet_address").notNull(),
-
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    inviteeXName: varchar("initee_x_username").notNull(),
+    inviteeWalletAdress: varchar("invitee_wallet_address").notNull(),
   },
   (table) => [
-    uniqueIndex("unique_referral_code_follower").on(
+    uniqueIndex("unique_onchain_job_invitees_referral_code_inviteeXName").on(
       table.referralCode,
-      table.followerWalletAddress
+      table.inviteeXName
     ),
+    uniqueIndex(
+      "unique_onchain_job_invitees_yapper_profile_id_inviteeXName"
+    ).on(table.yapperProfileId, table.inviteeXName),
   ]
 );
