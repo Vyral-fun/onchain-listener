@@ -11,6 +11,13 @@ export const envSchema = z.object({
     required_error: "API_KEY is required",
   }),
 
+  YAP_API_URL: z.string({
+    required_error: "YAP_API_URL is required",
+  }),
+  YAP_API_KEY: z.string({
+    required_error: "YAP_API_KEY is required",
+  }),
+
   BASE_URL: z.string({
     required_error: "BASE_URL is required",
   }),
