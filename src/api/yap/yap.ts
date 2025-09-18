@@ -12,7 +12,7 @@ export async function getYapMarketAddresses(
     const res = await fetch(`${YAP_API_URL}/api/yap/onchain/yappers`, {
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${YAP_API_KEY ?? ""}`,
+        Authorization: `Bearer ${YAP_API_KEY}`,
       },
     });
 
@@ -47,7 +47,7 @@ export async function getJobYaps(jobId: string): Promise<Yap[]> {
     const res = await fetch(`${YAP_API_URL}/api/yap/onchain/${jobId}/yappers`, {
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${YAP_API_KEY ?? ""}`,
+        Authorization: `Bearer ${YAP_API_KEY}`,
       },
     });
 
