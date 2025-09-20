@@ -1,0 +1,50 @@
+name: Deploy Onchain-Listener to EC2 on Production
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1.2.1
+        with:
+          bun-version: latest
+      - run: bun install
+      - run: bun run lint
+      - run: bun run format
+      - run: bun run typecheck
+      - run: bun run build
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PRODCUTION_EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.PRODCUTION_EC2_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy on EC2
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          ssh -i ~/.ssh/id_rsa ${{ secrets.PRODUCTION_EC2_USER }}@${{ secrets.PRODCUTION_EC2_HOST }} << EOF
+            set -e
+            cd ${{ secrets.PRODUCTION_ONCHAIN_LISTENER_APP_DIR }}
+            git reset --hard
+            git pull https://x-access-token:${GH_PAT}@github.com/Vyral-fun/onchain-listener.git dev
+            /home/ubuntu/.bun/bin/bun install
+            /home/ubuntu/.bun/bin/bun db:migrate || true
+            pm2 update
+            pm2 restart onchain-listener
+            pm2 save
+          EOF
