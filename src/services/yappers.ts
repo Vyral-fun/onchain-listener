@@ -57,6 +57,7 @@ export async function recordYapperClusterActivity(
   };
 
   const allAddresses = [
+    yap.walletAddress,
     ...(twitterAddresses || []),
     ...(addressesData.allAddresses || []),
     ...(yapMarketAddresses || []),
