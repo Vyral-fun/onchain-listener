@@ -45,6 +45,6 @@ jobs:
             /home/ubuntu/.bun/bin/bun install
             /home/ubuntu/.bun/bin/bun db:migrate || true
             /home/ubuntu/.bun/bin/bunx pm2 update
-            /home/ubuntu/.bun/bin/bunx pm2 restart onchain-listener --update-env
+            /home/ubuntu/.bun/bin/bunx pm2 restart onchain-listener --update-env.
             /home/ubuntu/.bun/bin/bunx pm2 save
           EOF
