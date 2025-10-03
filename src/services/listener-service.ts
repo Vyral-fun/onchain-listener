@@ -415,18 +415,18 @@ async function normalizeEvent(
     }
   };
 
-  const contractAddress = log.address.toLowerCase();
+  const contractAddress = log.address;
   let sender: string | undefined;
   let receiver: string | undefined;
 
   if (parsed.args?.from && isAddress(parsed.args.from)) {
-    const fromAddress = parsed.args.from.toLowerCase();
+    const fromAddress = parsed.args.from;
     if (fromAddress !== contractAddress) {
       sender = parsed.args.from;
     }
   }
   if (parsed.args?.to && isAddress(parsed.args.to)) {
-    const toAddress = parsed.args.to.toLowerCase();
+    const toAddress = parsed.args.to;
     if (toAddress !== contractAddress) {
       receiver = parsed.args.to;
     }
@@ -436,7 +436,7 @@ async function normalizeEvent(
     const addresses = Object.values(parsed.args).filter(
       (v: any): v is string => {
         if (!isAddress(v)) return false;
-        return (v as string).toLowerCase() !== contractAddress;
+        return (v as string) !== contractAddress;
       }
     );
 
