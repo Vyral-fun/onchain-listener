@@ -83,7 +83,7 @@ export const yappersDerivedAddressActivity = pgTable(
   {
     id: varchar("id").primaryKey().$defaultFn(nanoid),
     yapperid: varchar("yapperid").notNull(),
-    yapperUsername: varchar("yapper_username"),
+    yapperUsername: varchar("yapper_username").notNull(),
     yapperUserId: varchar("yapper_user_id").notNull(),
     jobId: varchar("job_id").notNull(),
     yapperAddress: varchar("yapper_address", { length: 42 }).notNull(),

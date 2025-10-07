@@ -44,6 +44,30 @@ CREATE TABLE "jobs" (
 	"is_active" boolean DEFAULT true NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "onchain_job_invites" (
+	"id" varchar PRIMARY KEY NOT NULL,
+	"yapper_profile_id" varchar NOT NULL,
+	"referral_code" varchar NOT NULL,
+	"initee_x_username" varchar NOT NULL,
+	"invitee_wallet_address" varchar NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "yappers_derived_address_activity" (
+	"id" varchar PRIMARY KEY NOT NULL,
+	"yapperid" varchar NOT NULL,
+	"yapper_username" varchar NOT NULL,
+	"yapper_user_id" varchar NOT NULL,
+	"job_id" varchar NOT NULL,
+	"yapper_address" varchar(42) NOT NULL,
+	"address" varchar(42) NOT NULL,
+	"event" varchar(255),
+	"value" numeric,
+	"transaction_hash" varchar(66),
+	"interacted" boolean DEFAULT false
+);
+--> statement-breakpoint
 CREATE INDEX "idx_job_detected" ON "contract_events" USING btree ("job_id","detected_at");--> statement-breakpoint
 CREATE INDEX "idx_contract_detected" ON "contract_events" USING btree ("contract_address","detected_at");--> statement-breakpoint
-CREATE INDEX "idx_sender_receiver" ON "contract_events" USING btree ("sender","receiver");
+CREATE INDEX "idx_sender_receiver" ON "contract_events" USING btree ("sender","receiver");--> statement-breakpoint
+CREATE UNIQUE INDEX "unique_onchain_job_invitees_referral_code_inviteeXName" ON "onchain_job_invites" USING btree ("referral_code","initee_x_username");--> statement-breakpoint
+CREATE UNIQUE INDEX "unique_onchain_job_invitees_yapper_profile_id_inviteeXName" ON "onchain_job_invites" USING btree ("yapper_profile_id","initee_x_username");

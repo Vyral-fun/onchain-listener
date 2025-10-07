@@ -1,1 +1,0 @@
-ALTER TABLE "yappers_derived_address_activity" ADD COLUMN "yapper_username" varchar;

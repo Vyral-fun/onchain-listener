@@ -1,1 +1,0 @@
-ALTER TABLE "yappers_derived_address_activity" ALTER COLUMN "yapper_username" SET NOT NULL;
