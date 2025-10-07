@@ -324,12 +324,36 @@ export async function getJobClusters(c: Context) {
       }))
     );
 
+    const yapperInteractionCounts = Object.entries(clustersMap).map(
+      ([yapperId, acts]) => {
+        const interactedCount = acts.filter((act) => act.interacted).length;
+        const totalAddresses = acts.length;
+        const yapperUserId = acts[0]?.yapperUserId;
+        const yapperUsername = acts[0]?.yapperUsername;
+
+        return {
+          yapperId,
+          yapperUserId,
+          yapperUsername,
+          interactedCount,
+          totalAddresses,
+          interactionRate:
+            totalAddresses > 0 ? (interactedCount / totalAddresses) * 100 : 0,
+        };
+      }
+    );
+
+    const topContributors = yapperInteractionCounts
+      .sort((a, b) => b.interactedCount - a.interactedCount)
+      .slice(0, 5);
+
     return c.json(
       {
         totalUniqueWalletsDuringJob: uniqueJobAddresses.length,
         interactionPercentage: Number(yapperInteractionPercentage.toFixed(2)),
         totalYapperDerivedAddresses: yapperDerivedAddresses.length,
         interactedYapperCount: interactedYapperCount,
+        topContributors,
         clusters: serializedClusters,
       },
       200

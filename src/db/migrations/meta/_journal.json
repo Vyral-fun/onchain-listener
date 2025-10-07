@@ -29,6 +29,20 @@
       "when": 1758191889298,
       "tag": "0003_fat_killmonger",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1759845259285,
+      "tag": "0004_abnormal_nuke",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1759845310168,
+      "tag": "0005_fixed_speed",
+      "breakpoints": true
     }
   ]
 }
