@@ -38,7 +38,7 @@
     "db:generate": "drizzle-kit generate",
     "db:generate-custom": "drizzle-kit generate --custom",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio",
+    "db:studio": "drizzle-kit studio --port=5555",
     "health:check": "curl -sf http://localhost:4000/health | grep 'OK' > /dev/null && echo \"\\x1B[32m🏥 Health Check: Ship is sailing smoothly.\\x1B[0m\" || { echo \"\\x1B[31m🛑 Health Check: Hull breach detected!\\x1B[0m\"; exit 1; }"
   }
 }
