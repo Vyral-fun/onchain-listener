@@ -63,6 +63,8 @@ export async function getJobYaps(jobId: string): Promise<Yap[]> {
       return [];
     }
 
+    console.log(`Fetched ${data.length} yaps for job ${jobId}`);
+
     return data.map((item: any) => ({
       yapperid: item.yapperId,
       userId: item.userId,

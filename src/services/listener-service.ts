@@ -375,6 +375,8 @@ export async function unsubscribeJobFromContractListener(jobId: string) {
     .set({ eventAddresses: filteredAddresses })
     .where(eq(jobs.id, jobId));
 
+  console.log(`Job '${jobId}' unsubscribed from contract listener.`);
+
   return true;
 }
 
