@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   bigint,
   bigserial,
@@ -100,17 +101,17 @@ export const onchainJobInvites = pgTable(
   {
     id: varchar("id").primaryKey().$defaultFn(nanoid),
     yapperProfileId: varchar("yapper_profile_id").notNull(),
-    referralCode: varchar("referral_code").notNull(),
-    inviteeXName: varchar("initee_x_username").notNull(),
+    inviteeXName: varchar("invitee_x_username"),
     inviteeWalletAdress: varchar("invitee_wallet_address").notNull(),
   },
   (table) => [
-    uniqueIndex("unique_onchain_job_invitees_referral_code_inviteeXName").on(
-      table.referralCode,
-      table.inviteeXName
+    uniqueIndex("unique_yapper_wallet_invite").on(
+      table.yapperProfileId,
+      table.inviteeWalletAdress
     ),
-    uniqueIndex(
-      "unique_onchain_job_invitees_yapper_profile_id_inviteeXName"
-    ).on(table.yapperProfileId, table.inviteeXName),
+
+    uniqueIndex("unique_yapper_xname_invite")
+      .on(table.yapperProfileId, table.inviteeXName)
+      .where(sql`${table.inviteeXName} IS NOT NULL`),
   ]
 );
