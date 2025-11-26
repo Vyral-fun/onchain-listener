@@ -1,11 +1,11 @@
 import { z } from "zod";
 
 export const joinOnchainInviteSchema = z.object({
-  referralCode: z.string().min(10, "referralCode is required"),
-  name: z
+  username: z
     .string()
     .min(1, { message: "Username is required." })
-    .max(50, { message: "Username must be at most 50 characters long." }),
+    .max(50, { message: "Username must be at most 50 characters long." })
+    .optional(),
   walletAddress: z
     .string()
     .refine(

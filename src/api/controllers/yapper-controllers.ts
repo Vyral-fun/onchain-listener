@@ -17,7 +17,7 @@ export async function joinOnchainInvite(c: Context) {
 
   try {
     const body = await c.req.json();
-    const { referralCode, name, walletAddress } = body;
+    const { username, walletAddress } = body;
 
     const parsed = joinOnchainInviteSchema.safeParse(body);
     if (!parsed.success) {
@@ -31,8 +31,7 @@ export async function joinOnchainInvite(c: Context) {
       .insert(onchainJobInvites)
       .values({
         yapperProfileId,
-        referralCode,
-        inviteeXName: name,
+        inviteeXName: username,
         inviteeWalletAdress: walletAddress,
       })
       .returning();
