@@ -6,6 +6,7 @@ import { cors } from "hono/cors";
 import { bodyLimit } from "hono/body-limit";
 
 import ApiRoutes from "./api/routes/api-routes";
+import { updateNetworksListeners } from "./services/campaign-service";
 
 const API_KEY = Bun.env.API_KEY;
 
@@ -53,5 +54,6 @@ app.get("/health", (c: Context) => {
 });
 
 app.route("/api/v1/onchain-listener", ApiRoutes);
+updateNetworksListeners();
 
 export default app;

@@ -134,6 +134,13 @@ export const envSchema = z.object({
   TWITTER_API_KEY: z.string({
     required_error: "TWITTER_API_KEY is required",
   }),
+
+  BASE_ESCROW_CONTRACT: z.string({
+    required_error: "BASE_ESCROW_CONTRACT is required",
+  }),
+  MONAD_ESCROW_CONTRACT: z.string({
+    required_error: "MONAD_ESCROW_CONTRACT is required",
+  }),
 });
 
 export default function parseEnv() {
