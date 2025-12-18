@@ -46,9 +46,16 @@ export async function createtNetworkListener(
       if (!listener.isActive) return;
 
       const txHash = event.log.transactionHash;
+      console.log("YapRequestCreated event detected:");
+      console.log("chainId", chainId);
+      console.log("jobId", jobId);
+      console.log("budget", budget.toString());
+      console.log("fee", fee.toString());
       console.log("tx hash", txHash);
+      console.log(" ");
 
       try {
+        console.log("Processing YapRequestCreated for jobId:", jobId);
         await handleYapRequestCreated(
           jobId,
           yapId,
@@ -59,6 +66,8 @@ export async function createtNetworkListener(
           creator,
           asset
         );
+        console.log("Processed YapRequestCreated for jobId:", jobId);
+        console.log(" ");
       } catch (error) {
         console.error("Error processing YapRequestCreated:", error);
       }
