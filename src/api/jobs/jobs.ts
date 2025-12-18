@@ -11,7 +11,6 @@ export async function handleYapRequestCreated(
   asset: string
 ) {
   try {
-    console.log(jobId);
     const formData = new FormData();
     formData.append("escrowYapId", String(yapId));
     formData.append("totalBudget", String(totalBudget));
