@@ -47,14 +47,8 @@ export const envSchema = z.object({
     required_error: "DATABASE_URL is required",
   }),
 
-  REDIS_HOST: z.string({
-    required_error: "REDIS_HOST is required",
-  }),
-  REDIS_PORT: z.string({
-    required_error: "REDIS_PORT is required",
-  }),
-  REDIS_PASSWORD: z.string({
-    required_error: "REDIS_PASSWORD is required",
+  REDIS_URL: z.string({
+    required_error: "REDIS_URL is required",
   }),
 
   ALCHEMY_API_KEY: z.string({
