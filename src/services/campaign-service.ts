@@ -1,7 +1,9 @@
 import { getEcosystemDetails, getEnvChainIds } from "@/utils/ecosystem";
 import { abi } from "../escrowV2.json";
+import { abi as erc20Abi } from "../erc20.json";
 import { ethers } from "ethers";
 import { handleYapRequestCreated } from "@/api/jobs/jobs";
+import { NULL_ADDRESS } from "@/utils/constants";
 
 export interface NetworkContractListener {
   contract: ethers.Contract;
@@ -45,12 +47,23 @@ export async function createtNetworkListener(
     async (yapId, creator, jobId, asset, budget, fee, event) => {
       if (!listener.isActive) return;
 
+      let decimals: number;
+      if (asset === NULL_ADDRESS) {
+        decimals = 18;
+      } else {
+        const tokenContract = new ethers.Contract(asset, erc20Abi, wsProvider);
+        decimals = await tokenContract.decimals();
+      }
+
+      const adjustedBudget = Number(ethers.formatUnits(budget, decimals));
+      const adjustedFee = Number(ethers.formatUnits(fee, decimals));
+
       const txHash = event.log.transactionHash;
       console.log("YapRequestCreated event detected:");
       console.log("chainId", chainId);
       console.log("jobId", jobId);
-      console.log("budget", budget.toString());
-      console.log("fee", fee.toString());
+      console.log("budget", adjustedBudget.toString());
+      console.log("fee", adjustedFee.toString());
       console.log("tx hash", txHash);
       console.log(" ");
 
@@ -59,8 +72,8 @@ export async function createtNetworkListener(
         await handleYapRequestCreated(
           jobId,
           yapId,
-          budget,
-          fee,
+          adjustedBudget,
+          adjustedFee,
           chainId,
           txHash,
           creator,
