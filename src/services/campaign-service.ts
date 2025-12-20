@@ -1,4 +1,7 @@
-import { getEcosystemDetails, getEnvChainIds } from "@/utils/ecosystem";
+import {
+  getEcosystemDetails,
+  getEnvChainIdsForActiveListeners,
+} from "@/utils/ecosystem";
 import { abi } from "../escrowV2.json";
 import { abi as erc20Abi } from "../erc20.json";
 import { ethers } from "ethers";
@@ -119,7 +122,7 @@ export async function updateNetworkContractListener(
 }
 
 export async function updateNetworksListeners() {
-  let envChainIds = getEnvChainIds();
+  let envChainIds = getEnvChainIdsForActiveListeners();
 
   for (const chainId of envChainIds) {
     try {
