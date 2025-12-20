@@ -81,6 +81,54 @@ export const envSchema = z.object({
   MONAD_WS_PROVIDER_URL: z.string({
     required_error: "MONAD_WS_PROVIDER_URL is required",
   }),
+  ETHEREUM_PROVIDER_URL: z.string({
+    required_error: "ETHEREUM_PROVIDER_URL is required",
+  }),
+  ETHEREUM_WS_PROVIDER_URL: z.string({
+    required_error: "ETHEREUM_WS_PROVIDER_URL is required",
+  }),
+  ETHEREUM_SEPOLIA_PROVIDER_URL: z.string({
+    required_error: "ETHEREUM_SEPOLIA_PROVIDER_URL is required",
+  }),
+  ETHEREUM_SEPOLIA_WS_PROVIDER_URL: z.string({
+    required_error: "ETHEREUM_SEPOLIA_WS_PROVIDER_URL is required",
+  }),
+  OPT_MAINNET_PROVIDER_URL: z.string({
+    required_error: "OPT_MAINNET_PROVIDER_URL is required",
+  }),
+  OPT_MAINNET_WS_PROVIDER_URL: z.string({
+    required_error: "OPT_MAINNET_WS_PROVIDER_URL is required",
+  }),
+  OPT_SEPOLIA_PROVIDER_URL: z.string({
+    required_error: "OPT_SEPOLIA_PROVIDER_URL is required",
+  }),
+  OPT_SEPOLIA_WS_PROVIDER_URL: z.string({
+    required_error: "OPT_SEPOLIA_WS_PROVIDER_URL is required",
+  }),
+  ARB_MAINNET_PROVIDER_URL: z.string({
+    required_error: "ARB_MAINNET_PROVIDER_URL is required",
+  }),
+  ARB_MAINNET_WS_PROVIDER_URL: z.string({
+    required_error: "ARB_MAINNET_WS_PROVIDER_URL is required",
+  }),
+  ARB_SEPOLIA_PROVIDER_URL: z.string({
+    required_error: "ARB_SEPOLIA_PROVIDER_URL is required",
+  }),
+  ARB_SEPOLIA_WS_PROVIDER_URL: z.string({
+    required_error: "ARB_SEPOLIA_WS_PROVIDER_URL is required",
+  }),
+  BNB_MAINNET_PROVIDER_URL: z.string({
+    required_error: "BNB_MAINNET_PROVIDER_URL is required",
+  }),
+  BNB_MAINNET_WS_PROVIDER_URL: z.string({
+    required_error: "BNB_MAINNET_WS_PROVIDER_URL is required",
+  }),
+  BNB_TESTNET_PROVIDER_URL: z.string({
+    required_error: "BNB_TESTNET_PROVIDER_URL is required",
+  }),
+  BNB_TESTNET_WS_PROVIDER_URL: z.string({
+    required_error: "BNB_TESTNET_WS_PROVIDER_URL is required",
+  }),
 
   AWS_SECRETS_MANAGER_SECRET_NAME: z.string({
     required_error: "AWS_SECRETS_MANAGER_SECRET_NAME is required",

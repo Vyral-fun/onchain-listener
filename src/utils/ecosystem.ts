@@ -24,10 +24,12 @@ function mapNodeEnvToEcosystemEnv() {
   return Bun.env.NODE_ENV === "production" ? "prod" : "development";
 }
 
-export function getEnvChainIds(): number[] {
+export function getEnvChainIdsForActiveListeners(): number[] {
   const env = mapNodeEnvToEcosystemEnv();
 
-  return ECOSYSTEM_DETAILS.filter((e) => e.env === env).map((e) => e.chainId);
+  return ECOSYSTEM_DETAILS.filter(
+    (e) => e.env === env && e.forActiveListener
+  ).map((e) => e.chainId);
 }
 
 export function getAlchemyInstance(chainId: number): Alchemy {
