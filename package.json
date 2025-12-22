@@ -5,7 +5,8 @@
   "private": true,
   "devDependencies": {
     "@types/bun": "latest",
-    "dotenv": "^17.2.2"
+    "dotenv": "^17.2.2",
+    "rimraf": "^6.1.2"
   },
   "peerDependencies": {
     "typescript": "^5"
