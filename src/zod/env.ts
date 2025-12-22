@@ -130,48 +130,48 @@ export const envSchema = z.object({
     required_error: "BNB_TESTNET_WS_PROVIDER_URL is required",
   }),
 
-  AWS_SECRETS_MANAGER_SECRET_NAME: z.string({
-    required_error: "AWS_SECRETS_MANAGER_SECRET_NAME is required",
-  }),
-  AWS_KMS_REGION: z.string({
-    required_error: "AWS_KMS_REGION is required",
-  }),
-  AWS_KMS_ACCESS_KEY: z.string({
-    required_error: "AWS_KMS_ACCESS_KEY is required",
-  }),
-  AWS_KMS_ACCESS_SECRET: z.string({
-    required_error: "AWS_KMS_ACCESS_SECRET is required",
-  }),
+  //AWS_SECRETS_MANAGER_SECRET_NAME: z.string({
+  //  required_error: "AWS_SECRETS_MANAGER_SECRET_NAME is required",
+  //}),
+  //AWS_KMS_REGION: z.string({
+  //  required_error: "AWS_KMS_REGION is required",
+  //}),
+  //AWS_KMS_ACCESS_KEY: z.string({
+  //  required_error: "AWS_KMS_ACCESS_KEY is required",
+  //}),
+  //AWS_KMS_ACCESS_SECRET: z.string({
+  //  required_error: "AWS_KMS_ACCESS_SECRET is required",
+  //}),
 
-  AWS_BUCKET_NAME: z.string({
-    required_error: "AWS_BUCKET_NAME is required",
-  }),
-  AWS_BUCKET_REGION: z.string({
-    required_error: "AWS_BUCKET_REGION is required",
-  }),
-  AWS_ACCESS_KEY: z.string({
-    required_error: "AWS_ACCESS_KEY is required",
-  }),
-  AWS_ACCESS_SECRET: z.string({
-    required_error: "AWS_ACCESS_SECRET is required",
-  }),
-  AWS_CLOUDFRONT_URL: z.string({
-    required_error: "AWS_CLOUDFRONT_URL is required",
-  }),
+  //AWS_BUCKET_NAME: z.string({
+  //  required_error: "AWS_BUCKET_NAME is required",
+  //}),
+  //AWS_BUCKET_REGION: z.string({
+  //  required_error: "AWS_BUCKET_REGION is required",
+  //}),
+  //AWS_ACCESS_KEY: z.string({
+  //  required_error: "AWS_ACCESS_KEY is required",
+  //}),
+  //AWS_ACCESS_SECRET: z.string({
+  //  required_error: "AWS_ACCESS_SECRET is required",
+  //}),
+  //AWS_CLOUDFRONT_URL: z.string({
+  //  required_error: "AWS_CLOUDFRONT_URL is required",
+  //}),
 
-  VENICE_BASE_URL: z
-    .string({
-      required_error: "VENICE_BASE_URL is required",
-    })
-    .url({
-      message: "VENICE_BASE_URL must be a valid URL",
-    }),
-  VENICE_API_KEY: z.string({
-    required_error: "VENICE_API_KEY is required",
-  }),
-  OPENAI_API_KEY: z.string({
-    required_error: "OPENAI_API_KEY is required",
-  }),
+  //VENICE_BASE_URL: z
+  //  .string({
+  //    required_error: "VENICE_BASE_URL is required",
+  //  })
+  //  .url({
+  //    message: "VENICE_BASE_URL must be a valid URL",
+  //  }),
+  //VENICE_API_KEY: z.string({
+  //  required_error: "VENICE_API_KEY is required",
+  //}),
+  //OPENAI_API_KEY: z.string({
+  //  required_error: "OPENAI_API_KEY is required",
+  //}),
 
   TWITTER_API_KEY: z.string({
     required_error: "TWITTER_API_KEY is required",
