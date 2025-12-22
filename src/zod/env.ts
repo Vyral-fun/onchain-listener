@@ -34,15 +34,15 @@ export const envSchema = z.object({
     required_error: "MODEL_URL is required",
   }),
 
-  POSTGRES_USER: z.string({
-    required_error: "POSTGRES_USER is required",
-  }),
-  POSTGRES_PASSWORD: z.string({
-    required_error: "POSTGRES_PASSWORD is required",
-  }),
-  POSTGRES_DB: z.string({
-    required_error: "POSTGRES_DB is required",
-  }),
+  //POSTGRES_USER: z.string({
+  //  required_error: "POSTGRES_USER is required",
+  //}),
+  //POSTGRES_PASSWORD: z.string({
+  //  required_error: "POSTGRES_PASSWORD is required",
+  //}),
+  //POSTGRES_DB: z.string({
+  //  required_error: "POSTGRES_DB is required",
+  //}),
   DATABASE_URL: z.string({
     required_error: "DATABASE_URL is required",
   }),
