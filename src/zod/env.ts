@@ -21,15 +21,6 @@ export const envSchema = z.object({
   CLIENT_URL: z.string({
     required_error: "CLIENT_URL is required",
   }),
-  YAP_CLIENT_URL: z.string({
-    required_error: "YAP_CLIENT_URL is required",
-  }),
-  YAP_ADMIN_CLIENT_URL: z.string({
-    required_error: "YAP_ADMIN_CLIENT_URL is required",
-  }),
-  MODEL_URL: z.string({
-    required_error: "MODEL_URL is required",
-  }),
 
   DATABASE_URL: z.string({
     required_error: "DATABASE_URL is required",
