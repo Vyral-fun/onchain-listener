@@ -334,6 +334,11 @@
       "inputs": [
         {
           "internalType": "uint256",
+          "name": "_escrowId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
           "name": "_budget",
           "type": "uint256"
         },
@@ -440,11 +445,6 @@
           "internalType": "address[]",
           "name": "_admins",
           "type": "address[]"
-        },
-        {
-          "internalType": "uint256",
-          "name": "_currentYapRequestCount",
-          "type": "uint256"
         },
         {
           "internalType": "address",
