@@ -14,10 +14,19 @@ export interface NetworkContractListener {
   provider: ethers.WebSocketProvider;
   chainId: number;
   isActive: boolean;
+  reconnectAttempts: number;
+  lastEventTime: number;
+  teardown: () => Promise<void>;
   stop: () => Promise<void>;
+  reconnect: () => Promise<void>;
 }
 
-const runtimeNetworkListeners: Record<number, NetworkContractListener> = {};
+const MAX_RECONNECT_ATTEMPTS = 5;
+const RECONNECT_DELAY = 5000; // 5 seconds
+const HEALTH_CHECK_INTERVAL = 60000; // 1 minute
+
+export const runtimeNetworkListeners: Record<number, NetworkContractListener> =
+  {};
 
 export async function createtNetworkListener(
   chainId: number,
@@ -37,25 +46,96 @@ export async function createtNetworkListener(
     provider: wsProvider,
     chainId,
     isActive: true,
+    reconnectAttempts: 0,
+    lastEventTime: Date.now(),
     stop: async () => {
+      console.log(
+        `[${chainId}] Stopping listener for contract: ${contractAddress}`
+      );
+      listener.isActive = false;
       await contract.removeAllListeners();
       await wsProvider.destroy();
       delete runtimeNetworkListeners[chainId];
       console.log(`Stopped listener for contract: ${contractAddress}`);
+    },
+    reconnect: async () => {
+      if (!listener.isActive) return;
+
+      console.log(
+        `[${chainId}] Attempting reconnection (attempt ${
+          listener.reconnectAttempts + 1
+        }/${MAX_RECONNECT_ATTEMPTS})`
+      );
+
+      if (listener.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+        console.error(
+          `[${chainId}] Max reconnection attempts reached. Manual intervention required.`
+        );
+        return;
+      }
+
+      listener.reconnectAttempts++;
+
+      try {
+        await listener.stop();
+        await new Promise((resolve) => setTimeout(resolve, RECONNECT_DELAY));
+
+        const newListener = await createtNetworkListener(
+          chainId,
+          contractAddress
+        );
+        runtimeNetworkListeners[chainId] = newListener;
+
+        console.log(`[${chainId}] Reconnection successful`);
+      } catch (error) {
+        console.error(`[${chainId}] Reconnection failed:`, error);
+        setTimeout(() => listener.reconnect(), RECONNECT_DELAY);
+      }
+    },
+    teardown: async () => {
+      console.log(
+        `[${chainId}] Tearing down listener for contract: ${contractAddress}`
+      );
+      listener.isActive = false;
+      await contract.removeAllListeners();
+      await wsProvider.destroy();
+      console.log(
+        `[${chainId}] Teardown complete for contract: ${contractAddress}`
+      );
     },
   };
 
   contract.on(
     "YapRequestCreated",
     async (yapId, creator, jobId, asset, budget, fee, event) => {
-      if (!listener.isActive) return;
+      if (!listener.isActive) {
+        console.log(
+          `[${chainId}] Event received but listener is inactive. Ignoring.`
+        );
+        return;
+      }
+
+      listener.lastEventTime = Date.now();
+      listener.reconnectAttempts = 0;
 
       let decimals: number;
       if (asset === NULL_ADDRESS) {
         decimals = 18;
       } else {
-        const tokenContract = new ethers.Contract(asset, erc20Abi, wsProvider);
-        decimals = await tokenContract.decimals();
+        try {
+          const tokenContract = new ethers.Contract(
+            asset,
+            erc20Abi,
+            wsProvider
+          );
+          decimals = await tokenContract.decimals();
+        } catch (error) {
+          console.error(
+            `[${chainId}] Error fetching decimals for asset ${asset}:`,
+            error
+          );
+          decimals = 18;
+        }
       }
 
       const adjustedBudget = Number(ethers.formatUnits(budget, decimals));
@@ -90,14 +170,41 @@ export async function createtNetworkListener(
     }
   );
 
-  wsProvider.on("error", (error) => {
-    console.error(
-      `WebSocket Provider error for contract ${contractAddress}:`,
-      error
-    );
+  wsProvider.on("open", () => {
+    console.log(`[${chainId}] Provider reports WebSocket opened`);
   });
 
+  wsProvider.on("close", (code, reason) => {
+    console.warn(`[${chainId}] Provider reports close`, { code, reason });
+    if (listener.isActive) listener.reconnect();
+  });
+
+  wsProvider.on("error", (error) => {
+    console.error(`[${chainId}] Provider error`, error);
+    if (listener.isActive) listener.reconnect();
+  });
+
+  console.log(`[${chainId}] Listener created successfully`);
   return listener;
+}
+
+export function startHealthCheck() {
+  setInterval(() => {
+    const now = Date.now();
+    console.log("=== Health Check ===");
+
+    for (const [chainId, listener] of Object.entries(runtimeNetworkListeners)) {
+      const timeSinceLastEvent = now - listener.lastEventTime;
+      const minutesSinceLastEvent = Math.floor(timeSinceLastEvent / 60000);
+
+      console.log(`[${chainId}] Status:`);
+      console.log(`  - Active: ${listener.isActive}`);
+      console.log(`  - Last event: ${minutesSinceLastEvent} minutes ago`);
+      console.log(`  - Reconnect attempts: ${listener.reconnectAttempts}`);
+    }
+
+    console.log("====================");
+  }, HEALTH_CHECK_INTERVAL);
 }
 
 export async function updateNetworkContractListener(
@@ -112,7 +219,7 @@ export async function updateNetworkContractListener(
   }
 
   if (listener) {
-    listener.stop();
+    await listener.stop();
   }
 
   listener = await createtNetworkListener(chainId, contractAddress);
@@ -133,4 +240,7 @@ export async function updateNetworksListeners() {
       console.error(`Failed to start listener on chain ${chainId}:`, err);
     }
   }
+
+  startHealthCheck();
+  console.log("Health check monitoring started");
 }
