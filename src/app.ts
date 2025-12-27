@@ -6,7 +6,10 @@ import { cors } from "hono/cors";
 import { bodyLimit } from "hono/body-limit";
 
 import ApiRoutes from "./api/routes/api-routes";
-import { updateNetworksListeners } from "./services/campaign-service";
+import {
+  runtimeNetworkListeners,
+  updateNetworksListeners,
+} from "./services/campaign-service";
 
 const API_KEY = Bun.env.API_KEY;
 
@@ -55,5 +58,21 @@ app.get("/health", (c: Context) => {
 
 app.route("/api/v1/onchain-listener", ApiRoutes);
 updateNetworksListeners();
+
+process.on("SIGINT", async () => {
+  console.log("Shutting down gracefully...");
+  for (const listener of Object.values(runtimeNetworkListeners)) {
+    await listener.stop();
+  }
+  process.exit(0);
+});
+
+process.on("SIGTERM", async () => {
+  console.log("Shutting down gracefully...");
+  for (const listener of Object.values(runtimeNetworkListeners)) {
+    await listener.stop();
+  }
+  process.exit(0);
+});
 
 export default app;
