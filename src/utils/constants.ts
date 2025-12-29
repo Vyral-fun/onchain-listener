@@ -2,6 +2,7 @@ import { Alchemy, Network } from "alchemy-sdk";
 
 export const BATCH_SIZE = 500;
 
+export const LOG_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 export const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
 export const YAP_API_URL = Bun.env.YAP_API_URL;
 export const YAP_API_KEY = Bun.env.YAP_API_KEY;

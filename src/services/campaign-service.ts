@@ -6,7 +6,8 @@ import { abi } from "../escrowV2.json";
 import { abi as erc20Abi } from "../erc20.json";
 import { ethers } from "ethers";
 import { handleYapRequestCreated } from "@/api/jobs/jobs";
-import { NULL_ADDRESS } from "@/utils/constants";
+import { LOG_INTERVAL_MS, NULL_ADDRESS } from "@/utils/constants";
+import type { WebSocketLike } from "ethers";
 
 export interface NetworkContractListener {
   contract: ethers.Contract;
@@ -16,6 +17,7 @@ export interface NetworkContractListener {
   isActive: boolean;
   reconnectAttempts: number;
   lastEventTime: number;
+  lastBlockLogTime?: number;
   teardown: () => Promise<void>;
   stop: () => Promise<void>;
   reconnect: () => Promise<void>;
@@ -170,19 +172,54 @@ export async function createtNetworkListener(
     }
   );
 
-  wsProvider.on("open", () => {
-    console.log(`[${chainId}] Provider reports WebSocket opened`);
-  });
+  const ws =
+    (wsProvider as any).websocket ??
+    ((wsProvider as any)._websocket as WebSocketLike);
 
-  wsProvider.on("close", (code, reason) => {
-    console.warn(`[${chainId}] Provider reports close`, { code, reason });
-    if (listener.isActive) listener.reconnect();
-  });
+  if (ws) {
+    ws.addEventListener("open", () => {
+      console.log(`[${chainId}] WebSocket connection opened`);
+      listener.reconnectAttempts = 0;
+    });
 
-  wsProvider.on("error", (error) => {
-    console.error(`[${chainId}] Provider error`, error);
-    if (listener.isActive) listener.reconnect();
-  });
+    ws.addEventListener("close", (event: CloseEvent) => {
+      console.warn(`[${chainId}] WebSocket closed`, {
+        code: event.code,
+        reason: event.reason,
+        wasClean: event.wasClean,
+      });
+      if (listener.isActive) {
+        listener.reconnect();
+      }
+    });
+
+    ws.addEventListener("error", (event: Event) => {
+      console.error(`[${chainId}] WebSocket error:`, event);
+      if (listener.isActive) {
+        listener.reconnect();
+      }
+    });
+
+    wsProvider.on("block", (blockNumber) => {
+      const now = Date.now();
+
+      listener.reconnectAttempts = 0;
+
+      if (
+        !listener.lastBlockLogTime ||
+        now - listener.lastBlockLogTime >= LOG_INTERVAL_MS
+      ) {
+        console.info(
+          `[${chainId}] Latest block: ${blockNumber} received at ${new Date().toISOString()}`
+        );
+        listener.lastBlockLogTime = now;
+      }
+    });
+  } else {
+    console.warn(
+      `[${chainId}] Could not access WebSocket for connection monitoring`
+    );
+  }
 
   console.log(`[${chainId}] Listener created successfully`);
   return listener;
