@@ -4,6 +4,7 @@ import { contractEvents, contractListeners, jobs } from "@/db/schema/event";
 import { getEcosystemDetails } from "@/utils/ecosystem";
 import { and, desc, eq } from "drizzle-orm";
 import { NULL_ADDRESS } from "@/utils/constants";
+import WebSocket from "ws";
 
 export interface JobEventSubscription {
   jobId: string;
@@ -13,13 +14,21 @@ export interface JobEventSubscription {
 }
 
 export interface ContractListener {
-  contract: ethers.Contract;
+  ws: WebSocket;
   abi: any;
-  provider: ethers.WebSocketProvider;
+  iface: ethers.Interface;
+  httpProvider: ethers.JsonRpcProvider;
+  contractAddress: string;
   eventsBeingListened: Set<string>;
   chainId: number;
   startTime: Date;
+  subscriptionId: string | null;
+  pingTimer: Timer | null;
+  pongTimeout: Timer | null;
+  isActive: boolean;
+  reconnectAttempts: number;
   stop: () => Promise<void>;
+  reconnect: () => Promise<void>;
 }
 
 export type NormalizedEvent = {
@@ -34,6 +43,11 @@ export type NormalizedEvent = {
 };
 
 const runtimeListeners: Record<string, ContractListener> = {};
+
+const MAX_RECONNECT_ATTEMPTS = 10;
+const RECONNECT_DELAY = 5000;
+const PING_INTERVAL = 30000;
+const PONG_TIMEOUT = 15000;
 
 export async function subscribeJobToContractListener(
   jobId: string,
@@ -130,111 +144,279 @@ async function createContractListener(
   chainId: number,
   eventsToListenFor: string[]
 ): Promise<ContractListener> {
-  const { wsUrl } = getEcosystemDetails(chainId);
+  const { wsUrl, rpcUrl } = getEcosystemDetails(chainId);
   if (!wsUrl) {
     throw new Error(`WebSocket URL not found for chain ID: ${chainId}`);
   }
-  const wsProvider = new ethers.WebSocketProvider(wsUrl);
-  const contract = new ethers.Contract(contractAddress, abi, wsProvider);
+
+  const iface = new ethers.Interface(abi);
+  const httpProvider = new ethers.JsonRpcProvider(rpcUrl);
 
   const listener: ContractListener = {
-    contract,
+    ws: null as any,
     abi,
-    provider: wsProvider,
+    iface,
+    httpProvider,
     chainId,
+    contractAddress,
     eventsBeingListened: new Set(
       eventsToListenFor.length ? eventsToListenFor : ["*"]
     ),
     startTime: new Date(),
-    stop: async () => {
-      await contract.removeAllListeners();
-      await wsProvider.destroy();
+    subscriptionId: null,
+    pingTimer: null,
+    pongTimeout: null,
+    isActive: true,
+    reconnectAttempts: 0,
+    async stop() {
+      console.log(
+        `[${chainId}] Stopping listener for contract: ${contractAddress}`
+      );
+      listener.isActive = false;
+
+      if (listener.pingTimer) clearInterval(listener.pingTimer);
+      if (listener.pongTimeout) clearTimeout(listener.pongTimeout);
+
+      if (listener.ws && listener.subscriptionId) {
+        try {
+          await sendRpc(listener.ws, {
+            method: "eth_unsubscribe",
+            params: [listener.subscriptionId],
+          });
+        } catch (err) {
+          console.error(`[${chainId}] Unsubscribe error:`, err);
+        }
+      }
+
+      if (listener.ws) {
+        listener.ws.close(1000, "Stopping listener");
+      }
+
       delete runtimeListeners[contractAddress];
-      console.log(`Stopped listener for contract: ${contractAddress}`);
+      console.log(
+        `[${chainId}] Stopped listener for contract: ${contractAddress}`
+      );
+    },
+    async reconnect() {
+      if (!listener.isActive) return;
+
+      if (listener.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+        console.error(
+          `[${chainId}] Max reconnects reached. Manual intervention required.`
+        );
+        return;
+      }
+
+      listener.reconnectAttempts++;
+      console.log(
+        `[${chainId}] Reconnecting (attempt ${listener.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`
+      );
+
+      if (listener.pingTimer) clearInterval(listener.pingTimer);
+      if (listener.pongTimeout) clearTimeout(listener.pongTimeout);
+
+      if (listener.ws) {
+        listener.ws.removeAllListeners();
+        listener.ws.close();
+      }
+
+      const delay =
+        RECONNECT_DELAY * Math.pow(1.5, listener.reconnectAttempts - 1);
+      await new Promise((r) => setTimeout(r, delay));
+
+      setupWebSocket(listener, contractAddress, wsUrl, eventsToListenFor);
     },
   };
 
-  await updateListenerEvents(listener, eventsToListenFor);
+  setupWebSocket(listener, contractAddress, wsUrl, eventsToListenFor);
+  return listener;
+}
 
-  wsProvider.on("error", (error) => {
-    console.error(
-      `WebSocket Provider error for contract ${contractAddress}:`,
-      error
+function sendRpc(ws: WebSocket, payload: any): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const id = Date.now();
+    const timeoutId = setTimeout(() => {
+      reject(new Error("RPC request timeout"));
+    }, 10000);
+
+    ws.send(JSON.stringify({ jsonrpc: "2.0", id, ...payload }));
+
+    const handler = (data: Buffer) => {
+      try {
+        const msg = JSON.parse(data.toString());
+        if (msg.id === id) {
+          clearTimeout(timeoutId);
+          ws.off("message", handler);
+          if (msg.error) reject(msg.error);
+          else resolve(msg.result);
+        }
+      } catch (err) {}
+    };
+
+    ws.on("message", handler);
+  });
+}
+
+function setupWebSocket(
+  listener: ContractListener,
+  contractAddress: string,
+  wsUrl: string,
+  eventsToListenFor: string[]
+) {
+  const ws = new WebSocket(wsUrl);
+  listener.ws = ws;
+  const { chainId, iface, httpProvider } = listener;
+
+  ws.on("open", async () => {
+    console.log(
+      `[${chainId}] WebSocket opened for contract: ${contractAddress}`
     );
+    listener.reconnectAttempts = 0;
+
+    try {
+      const filter: any = { address: contractAddress };
+
+      if (eventsToListenFor.length > 0 && !eventsToListenFor.includes("*")) {
+        const topics = eventsToListenFor.map((eventName) => {
+          const fragment = iface.getEvent(eventName);
+          return ethers.id(fragment!.format("sighash"));
+        });
+        filter.topics = [topics];
+      }
+
+      const subId = await sendRpc(ws, {
+        method: "eth_subscribe",
+        params: ["logs", filter],
+      });
+
+      listener.subscriptionId = subId;
+      console.log(
+        `[${chainId}] eth_subscribe active (id: ${subId}) for events: ${
+          eventsToListenFor.length ? eventsToListenFor.join(", ") : "ALL"
+        }`
+      );
+
+      listener.pingTimer = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.ping();
+          listener.pongTimeout = setTimeout(() => {
+            console.warn(`[${chainId}] Pong timeout → forcing reconnect`);
+            ws.close(1006, "Pong timeout");
+          }, PONG_TIMEOUT);
+        }
+      }, PING_INTERVAL);
+    } catch (err) {
+      console.error(`[${chainId}] Subscription failed:`, err);
+      listener.reconnect();
+    }
   });
 
-  return listener;
+  ws.on("message", async (data: Buffer) => {
+    if (!listener.isActive) return;
+
+    try {
+      const msg = JSON.parse(data.toString());
+
+      if (msg.method === "eth_subscription") {
+        const { subscription, result } = msg.params;
+
+        if (subscription === listener.subscriptionId) {
+          const log = result;
+
+          try {
+            const parsed = iface.parseLog({
+              topics: log.topics,
+              data: log.data,
+            });
+
+            if (!parsed) {
+              console.log("⚠️ Unrecognized event log:", log);
+              return;
+            }
+
+            const normalizedEvent = await normalizeEvent(
+              parsed,
+              log,
+              httpProvider
+            );
+            logEvent(normalizedEvent);
+            await routeEventToJobs(normalizedEvent, listener);
+          } catch (err) {
+            console.log("⚠️ Could not parse log:", err);
+          }
+        }
+      }
+    } catch (err) {
+      console.error(`[${chainId}] Message processing error:`, err);
+    }
+  });
+
+  ws.on("pong", () => {
+    if (listener.pongTimeout) {
+      clearTimeout(listener.pongTimeout);
+      listener.pongTimeout = null;
+    }
+  });
+
+  ws.on("close", (code, reason) => {
+    console.warn(
+      `[${chainId}] WebSocket closed: ${code} - ${reason.toString()}`
+    );
+
+    if (listener.pingTimer) clearInterval(listener.pingTimer);
+    if (listener.pongTimeout) clearTimeout(listener.pongTimeout);
+
+    if (listener.isActive) {
+      listener.reconnect();
+    }
+  });
+
+  ws.on("error", (err) => {
+    console.error(`[${chainId}] WebSocket error:`, err);
+    if (listener.isActive) {
+      listener.reconnect();
+    }
+  });
 }
 
 async function updateListenerEvents(
   listener: ContractListener,
   eventsToListenFor: string[]
 ) {
-  const { contract, provider, abi } = listener;
+  const requiredEvents = new Set(
+    eventsToListenFor.length ? eventsToListenFor : ["*"]
+  );
 
-  await contract.removeAllListeners();
+  const currentEvents = listener.eventsBeingListened;
+  const needsUpdate =
+    currentEvents.size !== requiredEvents.size ||
+    ![...currentEvents].every((e) => requiredEvents.has(e));
 
-  const iface = new ethers.Interface(abi);
+  if (needsUpdate) {
+    console.log(
+      `[${listener.chainId}] Updating listener events from [${[
+        ...currentEvents,
+      ].join(", ")}] to [${[...requiredEvents].join(", ")}]`
+    );
 
-  const requiredEvents = eventsToListenFor.length
-    ? new Set(eventsToListenFor)
-    : new Set(["*"]);
-
-  if (requiredEvents.has("*")) {
-    const filter = { address: contract.target };
-    provider.on(filter, async (log) => {
+    if (listener.ws && listener.subscriptionId) {
       try {
-        const parsed = iface.parseLog({
-          topics: log.topics,
-          data: log.data,
+        await sendRpc(listener.ws, {
+          method: "eth_unsubscribe",
+          params: [listener.subscriptionId],
         });
-        if (!parsed) {
-          console.log("⚠️ Unrecognized event log:", log);
-          return;
-        }
-        const normalizedEvent = await normalizeEvent(parsed, log, provider);
-        logEvent(normalizedEvent);
-        await routeEventToJobs(normalizedEvent, listener);
+        listener.subscriptionId = null;
       } catch (err) {
-        console.log("⚠️ Could not parse log:", err);
+        console.error("Error unsubscribing:", err);
       }
-    });
-    listener.eventsBeingListened = new Set(["*"]);
-  } else {
-    requiredEvents.forEach((eventName) => {
-      contract.on(eventName, async (...args) => {
-        const event = args[args.length - 1];
-        const parsed = iface.parseLog(event);
-        if (!parsed) {
-          console.log("⚠️ Unrecognized event log:", event);
-          return;
-        }
-        const normalizedEvent = await normalizeEvent(parsed, event, provider);
-        logEvent(normalizedEvent);
-        await routeEventToJobs(normalizedEvent, listener);
-      });
-    });
-    listener.eventsBeingListened = new Set(requiredEvents);
-  }
-}
-
-function calculateRequiredEvents(
-  jobSubscriptions: Map<string, JobEventSubscription>
-): Set<string> {
-  const requiredEvents = new Set<string>();
-
-  for (const subscription of jobSubscriptions.values()) {
-    if (subscription.eventsToListenFor.length === 0) {
-      requiredEvents.add("*");
-      break;
-    } else {
-      subscription.eventsToListenFor.forEach((event) =>
-        requiredEvents.add(event)
-      );
     }
-  }
 
-  return requiredEvents;
+    const { wsUrl } = getEcosystemDetails(listener.chainId);
+    const eventsArray = [...requiredEvents].filter((e) => e !== "*");
+    setupWebSocket(listener, listener.contractAddress, wsUrl!, eventsArray);
+
+    listener.eventsBeingListened = requiredEvents;
+  }
 }
 
 async function routeEventToJobs(
@@ -347,6 +529,12 @@ export async function unsubscribeJobFromContractListener(jobId: string) {
       .update(contractListeners)
       .set({ subscribedJobs: jobRows.map((j) => j.id) })
       .where(eq(contractListeners.contractAddress, contractAddress));
+
+    const runtime = runtimeListeners[contractAddress];
+    if (runtime) {
+      const allEvents = jobRows.flatMap((j) => j.events);
+      await updateListenerEvents(runtime, allEvents);
+    }
   }
 
   const addresses = await db
@@ -370,7 +558,7 @@ export async function unsubscribeJobFromContractListener(jobId: string) {
       addr.startsWith("0x")
   );
 
-  const result = await db
+  await db
     .update(jobs)
     .set({ eventAddresses: filteredAddresses })
     .where(eq(jobs.id, jobId));
