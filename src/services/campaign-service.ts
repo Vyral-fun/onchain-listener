@@ -19,12 +19,12 @@ export interface NetworkContractListener {
   lastEventTime: number;
   lastBlockEventTime: number;
   lastBlockLogTime: number;
+  lastBlockNumber?: number;
   httpProvider: ethers.JsonRpcProvider;
   subscriptionId: string | null;
   blockSubscriptionId: string | null;
   iface: ethers.Interface;
-  pingTimer: Timer | null;
-  pongTimeout: Timer | null;
+  pollTimer: Timer | null;
   stop: () => Promise<void>;
   reconnect: () => Promise<void>;
 }
@@ -32,8 +32,8 @@ export interface NetworkContractListener {
 const MAX_RECONNECT_ATTEMPTS = 10;
 const RECONNECT_DELAY = 5000; // 5 seconds
 const HEALTH_CHECK_INTERVAL = 60000; // 1 minute
-const PING_INTERVAL = 30000; // 30s
-const PONG_TIMEOUT = 15000; // 15s
+const POLL_INTERVAL = 15000; // 15 seconds
+const LOG_EVERY_N_BLOCKS = 50;
 
 export const runtimeNetworkListeners: Record<number, NetworkContractListener> =
   {};
@@ -63,17 +63,15 @@ export async function createtNetworkListener(
     subscriptionId: null,
     blockSubscriptionId: null,
     iface,
+    pollTimer: null,
     httpProvider,
-    pingTimer: null,
-    pongTimeout: null,
     async stop() {
       console.log(
         `[${chainId}] Stopping listener for contract: ${contractAddress}`
       );
       listener.isActive = false;
 
-      if (listener.pingTimer) clearInterval(listener.pingTimer);
-      if (listener.pongTimeout) clearTimeout(listener.pongTimeout);
+      if (listener.pollTimer) clearInterval(listener.pollTimer);
 
       if (listener.ws && listener.subscriptionId) {
         try {
@@ -119,8 +117,7 @@ export async function createtNetworkListener(
         `[${chainId}] Reconnecting (attempt ${listener.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`
       );
 
-      if (listener.pingTimer) clearInterval(listener.pingTimer);
-      if (listener.pongTimeout) clearTimeout(listener.pongTimeout);
+      if (listener.pollTimer) clearInterval(listener.pollTimer);
 
       if (listener.ws) {
         listener.ws.removeAllListeners();
@@ -195,19 +192,58 @@ export async function createtNetworkListener(
         });
         listener.blockSubscriptionId = blockSubId;
 
-        console.log(
-          `[${chainId}] eth_subscribe blocks active (id: ${blockSubId})`
-        );
+        listener.pollTimer = setInterval(async () => {
+          if (!listener.ws || listener.ws.readyState !== WebSocket.OPEN) return;
 
-        listener.pingTimer = setInterval(() => {
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.ping();
-            listener.pongTimeout = setTimeout(() => {
-              console.warn(`[${chainId}] Pong timeout → forcing reconnect`);
-              ws.close(1006, "Pong timeout");
-            }, PONG_TIMEOUT);
+          try {
+            const requestId = Date.now() + Math.random();
+
+            const response = await new Promise<any>((resolve, reject) => {
+              const timeout = setTimeout(
+                () => reject(new Error("RPC poll timeout")),
+                10000
+              );
+
+              const handler = (data: Buffer) => {
+                try {
+                  const msg = JSON.parse(data.toString());
+                  if (msg.id === requestId) {
+                    clearTimeout(timeout);
+                    listener.ws?.off("message", handler);
+                    if (msg.error) reject(msg.error);
+                    else resolve(msg.result);
+                  }
+                } catch {}
+              };
+
+              listener.ws?.on("message", handler);
+
+              listener.ws?.send(
+                JSON.stringify({
+                  jsonrpc: "2.0",
+                  id: requestId,
+                  method: "eth_blockNumber",
+                  params: [],
+                })
+              );
+            });
+
+            listener.reconnectAttempts = 0;
+
+            // Log every 50 blocks
+            const blockNumber = parseInt(response, 16);
+            if (
+              listener.lastBlockNumber === undefined ||
+              blockNumber >= listener.lastBlockNumber + LOG_EVERY_N_BLOCKS
+            ) {
+              console.log(`[${chainId}] RPC poll block number: ${blockNumber}`);
+              listener.lastBlockNumber = blockNumber;
+            }
+          } catch (err) {
+            console.warn(`[${chainId}] WS RPC poll failed:`, err);
+            listener.reconnect();
           }
-        }, PING_INTERVAL);
+        }, POLL_INTERVAL);
       } catch (err) {
         console.error(`[${chainId}] Subscription failed:`, err);
         listener.reconnect();
@@ -311,20 +347,12 @@ export async function createtNetworkListener(
       }
     });
 
-    ws.on("pong", () => {
-      if (listener.pongTimeout) {
-        clearTimeout(listener.pongTimeout);
-        listener.pongTimeout = null;
-      }
-    });
-
     ws.on("close", (code, reason) => {
       console.warn(
         `[${chainId}] WebSocket closed: ${code} - ${reason.toString()}`
       );
 
-      if (listener.pingTimer) clearInterval(listener.pingTimer);
-      if (listener.pongTimeout) clearTimeout(listener.pongTimeout);
+      if (listener.pollTimer) clearInterval(listener.pollTimer);
 
       if (listener.isActive) {
         listener.reconnect();
@@ -364,6 +392,7 @@ export function startHealthCheck() {
       console.log(
         `  - Last block event: ${minutesSinceLastBlockEvent} minutes ago`
       );
+      console.log(`  - Last block number: ${listener.lastBlockNumber}`);
       console.log(`  - Reconnect attempts: ${listener.reconnectAttempts}`);
 
       const MAX_IDLE_TIME = 1 * 60 * 1000; // 5 minutes
