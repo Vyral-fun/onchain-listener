@@ -7,25 +7,39 @@ import { abi as erc20Abi } from "../erc20.json";
 import { ethers } from "ethers";
 import { handleYapRequestCreated } from "@/api/jobs/jobs";
 import { LOG_INTERVAL_MS, NULL_ADDRESS } from "@/utils/constants";
-import type { WebSocketLike } from "ethers";
+import WebSocket from "ws";
+
+type ERC20 = {
+  decimals(): Promise<number>;
+};
 
 export interface NetworkContractListener {
-  contract: ethers.Contract;
+  ws: WebSocket;
   abi: any;
-  provider: ethers.WebSocketProvider;
   chainId: number;
+  contractAddress: string;
   isActive: boolean;
   reconnectAttempts: number;
   lastEventTime: number;
-  lastBlockLogTime?: number;
-  teardown: () => Promise<void>;
+  lastBlockEventTime: number;
+  lastBlockLogTime: number;
+  lastBlockNumber?: number;
+  lastPollTime: number;
+  httpProvider: ethers.JsonRpcProvider;
+  subscriptionId: string | null;
+  blockSubscriptionId: string | null;
+  iface: ethers.Interface;
+  pollTimer: Timer | null;
   stop: () => Promise<void>;
   reconnect: () => Promise<void>;
 }
 
-const MAX_RECONNECT_ATTEMPTS = 5;
+const MAX_IDLE_TIME = 5 * 60 * 1000; // 5 minutes
+const MAX_RECONNECT_ATTEMPTS = 10;
 const RECONNECT_DELAY = 5000; // 5 seconds
 const HEALTH_CHECK_INTERVAL = 60000; // 1 minute
+const POLL_INTERVAL = 15000; // 15 seconds
+const LOG_EVERY_N_BLOCKS = 50;
 
 export const runtimeNetworkListeners: Record<number, NetworkContractListener> =
   {};
@@ -34,194 +48,333 @@ export async function createtNetworkListener(
   chainId: number,
   contractAddress: string
 ): Promise<NetworkContractListener> {
-  const { wsUrl } = getEcosystemDetails(chainId);
+  const { wsUrl, rpcUrl } = getEcosystemDetails(chainId);
   if (!wsUrl) {
     throw new Error(`WebSocket URL not found for chain ID: ${chainId}`);
   }
 
-  const wsProvider = new ethers.WebSocketProvider(wsUrl);
-  const contract = new ethers.Contract(contractAddress, abi, wsProvider);
+  const iface = new ethers.Interface(abi);
+  const httpProvider = new ethers.JsonRpcProvider(rpcUrl);
 
   const listener: NetworkContractListener = {
-    contract,
+    ws: null as any,
     abi,
-    provider: wsProvider,
     chainId,
+    contractAddress,
     isActive: true,
     reconnectAttempts: 0,
     lastEventTime: Date.now(),
-    stop: async () => {
+    lastBlockEventTime: Date.now(),
+    lastBlockLogTime: 0,
+    lastPollTime: 0,
+    subscriptionId: null,
+    blockSubscriptionId: null,
+    iface,
+    pollTimer: null,
+    httpProvider,
+    async stop() {
       console.log(
         `[${chainId}] Stopping listener for contract: ${contractAddress}`
       );
       listener.isActive = false;
-      await contract.removeAllListeners();
-      await wsProvider.destroy();
-      delete runtimeNetworkListeners[chainId];
-      console.log(`Stopped listener for contract: ${contractAddress}`);
-    },
-    reconnect: async () => {
-      if (!listener.isActive) return;
 
-      console.log(
-        `[${chainId}] Attempting reconnection (attempt ${
-          listener.reconnectAttempts + 1
-        }/${MAX_RECONNECT_ATTEMPTS})`
-      );
+      if (listener.pollTimer) clearInterval(listener.pollTimer);
+
+      if (listener.ws && listener.subscriptionId) {
+        try {
+          await sendRpc(listener.ws, {
+            method: "eth_unsubscribe",
+            params: [listener.subscriptionId],
+          });
+        } catch (err) {
+          console.error(`[${chainId}] Unsubscribe error:`, err);
+        }
+      }
+
+      if (listener.blockSubscriptionId) {
+        try {
+          await sendRpc(listener.ws, {
+            method: "eth_unsubscribe",
+            params: [listener.blockSubscriptionId],
+          });
+        } catch (err) {
+          console.error(`[${chainId}] Unsubscribe blocks error:`, err);
+        }
+      }
+
+      if (listener.ws) {
+        listener.ws.close(1000, "Stopping listener");
+      }
+
+      delete runtimeNetworkListeners[chainId];
+      console.log(`[${chainId}] Listener stopped successfully`);
+    },
+    async reconnect() {
+      if (!listener.isActive) return;
 
       if (listener.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
         console.error(
-          `[${chainId}] Max reconnection attempts reached. Manual intervention required.`
+          `[${chainId}] Max reconnects reached. Manual intervention required.`
         );
         return;
       }
 
       listener.reconnectAttempts++;
+      console.log(
+        `[${chainId}] Reconnecting (attempt ${listener.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`
+      );
 
-      try {
-        await listener.stop();
-        await new Promise((resolve) => setTimeout(resolve, RECONNECT_DELAY));
+      if (listener.pollTimer) clearInterval(listener.pollTimer);
 
-        const newListener = await createtNetworkListener(
-          chainId,
-          contractAddress
-        );
-        runtimeNetworkListeners[chainId] = newListener;
-
-        console.log(`[${chainId}] Reconnection successful`);
-      } catch (error) {
-        console.error(`[${chainId}] Reconnection failed:`, error);
-        setTimeout(() => listener.reconnect(), RECONNECT_DELAY);
+      if (listener.ws) {
+        listener.ws.removeAllListeners();
+        listener.ws.close();
       }
-    },
-    teardown: async () => {
-      console.log(
-        `[${chainId}] Tearing down listener for contract: ${contractAddress}`
-      );
-      listener.isActive = false;
-      await contract.removeAllListeners();
-      await wsProvider.destroy();
-      console.log(
-        `[${chainId}] Teardown complete for contract: ${contractAddress}`
-      );
+
+      const delay =
+        RECONNECT_DELAY * Math.pow(1.5, listener.reconnectAttempts - 1);
+      await new Promise((r) => setTimeout(r, delay));
+
+      setupWebSocket();
     },
   };
 
-  contract.on(
-    "YapRequestCreated",
-    async (yapId, creator, jobId, asset, budget, fee, event) => {
-      if (!listener.isActive) {
-        console.log(
-          `[${chainId}] Event received but listener is inactive. Ignoring.`
-        );
-        return;
-      }
+  function sendRpc(ws: WebSocket, payload: any): Promise<any> {
+    return new Promise((resolve, reject) => {
+      const id = Date.now();
+      const timeoutId = setTimeout(() => {
+        reject(new Error("RPC request timeout"));
+      }, 10000);
 
-      listener.lastEventTime = Date.now();
-      listener.reconnectAttempts = 0;
+      ws.send(JSON.stringify({ jsonrpc: "2.0", id, ...payload }));
 
-      let decimals: number;
-      if (asset === NULL_ADDRESS) {
-        decimals = 18;
-      } else {
+      const handler = (data: Buffer) => {
         try {
-          const tokenContract = new ethers.Contract(
-            asset,
-            erc20Abi,
-            wsProvider
-          );
-          decimals = await tokenContract.decimals();
-        } catch (error) {
-          console.error(
-            `[${chainId}] Error fetching decimals for asset ${asset}:`,
-            error
-          );
-          decimals = 18;
-        }
-      }
+          const msg = JSON.parse(data.toString());
+          if (msg.id === id) {
+            clearTimeout(timeoutId);
+            ws.off("message", handler);
+            if (msg.error) reject(msg.error);
+            else resolve(msg.result);
+          }
+        } catch (err) {}
+      };
 
-      const adjustedBudget = Number(ethers.formatUnits(budget, decimals));
-      const adjustedFee = Number(ethers.formatUnits(fee, decimals));
-
-      const txHash = event.log.transactionHash;
-      console.log("YapRequestCreated event detected:");
-      console.log("chainId", chainId);
-      console.log("jobId", jobId);
-      console.log("budget", adjustedBudget.toString());
-      console.log("fee", adjustedFee.toString());
-      console.log("tx hash", txHash);
-      console.log(" ");
-
-      try {
-        console.log("Processing YapRequestCreated for jobId:", jobId);
-        await handleYapRequestCreated(
-          jobId,
-          yapId,
-          adjustedBudget,
-          adjustedFee,
-          chainId,
-          txHash,
-          creator,
-          asset
-        );
-        console.log("Processed YapRequestCreated for jobId:", jobId);
-        console.log(" ");
-      } catch (error) {
-        console.error("Error processing YapRequestCreated:", error);
-      }
-    }
-  );
-
-  const ws =
-    (wsProvider as any).websocket ??
-    ((wsProvider as any)._websocket as WebSocketLike);
-
-  if (ws) {
-    ws.addEventListener("open", () => {
-      console.log(`[${chainId}] WebSocket connection opened`);
-      listener.reconnectAttempts = 0;
+      ws.on("message", handler);
     });
-
-    ws.addEventListener("close", (event: CloseEvent) => {
-      console.warn(`[${chainId}] WebSocket closed`, {
-        code: event.code,
-        reason: event.reason,
-        wasClean: event.wasClean,
-      });
-      if (listener.isActive) {
-        listener.reconnect();
-      }
-    });
-
-    ws.addEventListener("error", (event: Event) => {
-      console.error(`[${chainId}] WebSocket error:`, event);
-      if (listener.isActive) {
-        listener.reconnect();
-      }
-    });
-
-    wsProvider.on("block", (blockNumber) => {
-      const now = Date.now();
-
-      listener.reconnectAttempts = 0;
-
-      if (
-        !listener.lastBlockLogTime ||
-        now - listener.lastBlockLogTime >= LOG_INTERVAL_MS
-      ) {
-        console.info(
-          `[${chainId}] Latest block: ${blockNumber} received at ${new Date().toISOString()}`
-        );
-        listener.lastBlockLogTime = now;
-      }
-    });
-  } else {
-    console.warn(
-      `[${chainId}] Could not access WebSocket for connection monitoring`
-    );
   }
 
-  console.log(`[${chainId}] Listener created successfully`);
+  function setupWebSocket() {
+    const ws = new WebSocket(wsUrl);
+    listener.ws = ws;
+
+    ws.on("open", async () => {
+      console.log(`[${chainId}] WebSocket opened`);
+      listener.reconnectAttempts = 0;
+
+      try {
+        const subId = await sendRpc(ws, {
+          method: "eth_subscribe",
+          params: [
+            "logs",
+            {
+              address: contractAddress,
+              topics: [
+                ethers.id(
+                  "YapRequestCreated(uint256,address,string,address,uint256,uint256)"
+                ),
+              ],
+            },
+          ],
+        });
+
+        listener.subscriptionId = subId;
+        console.log(
+          `[${chainId}] eth_subscribe logs active (id: ${subId}) for contract ${contractAddress} with wsUrl ${wsUrl}`
+        );
+
+        const blockSubId = await sendRpc(ws, {
+          method: "eth_subscribe",
+          params: ["newHeads"],
+        });
+        listener.blockSubscriptionId = blockSubId;
+
+        listener.pollTimer = setInterval(async () => {
+          if (!listener.ws || listener.ws.readyState !== WebSocket.OPEN) return;
+
+          try {
+            const requestId = Date.now() + Math.random();
+
+            const response = await new Promise<any>((resolve, reject) => {
+              const timeout = setTimeout(
+                () => reject(new Error("RPC poll timeout")),
+                10000
+              );
+
+              const handler = (data: Buffer) => {
+                try {
+                  const msg = JSON.parse(data.toString());
+                  if (msg.id === requestId) {
+                    clearTimeout(timeout);
+                    listener.ws?.off("message", handler);
+                    if (msg.error) reject(msg.error);
+                    else resolve(msg.result);
+                  }
+                } catch {}
+              };
+
+              listener.ws?.on("message", handler);
+
+              listener.ws?.send(
+                JSON.stringify({
+                  jsonrpc: "2.0",
+                  id: requestId,
+                  method: "eth_blockNumber",
+                  params: [],
+                })
+              );
+            });
+
+            listener.reconnectAttempts = 0;
+            listener.lastPollTime = Date.now();
+
+            const blockNumber = parseInt(response, 16);
+            if (
+              listener.lastBlockNumber === undefined ||
+              blockNumber >= listener.lastBlockNumber + LOG_EVERY_N_BLOCKS
+            ) {
+              console.log(`[${chainId}] RPC poll block number: ${blockNumber}`);
+              listener.lastBlockNumber = blockNumber;
+            }
+          } catch (err) {
+            console.warn(`[${chainId}] WS RPC poll failed:`, err);
+            listener.reconnect();
+          }
+        }, POLL_INTERVAL);
+      } catch (err) {
+        console.error(`[${chainId}] Subscription failed:`, err);
+        listener.reconnect();
+      }
+    });
+
+    ws.on("message", async (data: Buffer) => {
+      if (!listener.isActive) return;
+
+      try {
+        const msg = JSON.parse(data.toString());
+
+        if (msg.method === "eth_subscription") {
+          const { subscription, result } = msg.params;
+
+          if (subscription === listener.subscriptionId) {
+            const log = result;
+            listener.lastEventTime = Date.now();
+            listener.reconnectAttempts = 0;
+
+            try {
+              const parsed = listener.iface.parseLog({
+                topics: log.topics,
+                data: log.data,
+              });
+
+              if (parsed?.name === "YapRequestCreated") {
+                const { yapId, creator, jobId, asset, budget, fee } =
+                  parsed.args;
+
+                let decimals = 18;
+                if (asset !== NULL_ADDRESS) {
+                  try {
+                    const tokenContract = new ethers.Contract(
+                      asset,
+                      erc20Abi,
+                      httpProvider
+                    ) as unknown as ERC20;
+                    decimals = await tokenContract.decimals();
+                  } catch (error) {
+                    console.error(
+                      `[${chainId}] Error fetching decimals for asset ${asset}:`,
+                      error
+                    );
+                  }
+                }
+
+                const adjustedBudget = Number(
+                  ethers.formatUnits(budget, decimals)
+                );
+                const adjustedFee = Number(ethers.formatUnits(fee, decimals));
+
+                console.log(`[${chainId}] YapRequestCreated event detected:`);
+                console.log(`  - JobId: ${jobId}`);
+                console.log(`  - YapId: ${yapId}`);
+                console.log(`  - Budget: ${adjustedBudget}`);
+                console.log(`  - Fee: ${adjustedFee}`);
+                console.log(`  - TxHash: ${log.transactionHash}`);
+                console.log(`  - Creator: ${creator}`);
+                console.log(`  - Asset: ${asset}`);
+
+                try {
+                  await handleYapRequestCreated(
+                    jobId,
+                    yapId,
+                    adjustedBudget,
+                    adjustedFee,
+                    chainId,
+                    log.transactionHash,
+                    creator,
+                    asset
+                  );
+                  console.log(
+                    `[${chainId}] Successfully processed YapRequestCreated for jobId: ${jobId}`
+                  );
+                } catch (error) {
+                  console.error(
+                    `[${chainId}] Error processing YapRequestCreated for jobId ${jobId}:`,
+                    error
+                  );
+                }
+              }
+            } catch (e) {
+              console.error(`[${chainId}] Log decode failed:`, e);
+            }
+          } else if (subscription === listener.blockSubscriptionId) {
+            const blockNumber = parseInt(result.number, 16);
+            const now = Date.now();
+            listener.lastBlockEventTime = now;
+
+            if (now - listener.lastBlockLogTime > LOG_INTERVAL_MS) {
+              console.log(
+                `[${chainId}] New block received: #${blockNumber} - ${result.hash}`
+              );
+              listener.lastBlockLogTime = now;
+            }
+          }
+        }
+      } catch (err) {
+        console.error(`[${chainId}] Message processing error:`, err);
+      }
+    });
+
+    ws.on("close", (code, reason) => {
+      console.warn(
+        `[${chainId}] WebSocket closed: ${code} - ${reason.toString()}`
+      );
+
+      if (listener.pollTimer) clearInterval(listener.pollTimer);
+
+      if (listener.isActive) {
+        listener.reconnect();
+      }
+    });
+
+    ws.on("error", (err) => {
+      console.error(`[${chainId}] WebSocket error:`, err);
+      if (listener.isActive) {
+        listener.reconnect();
+      }
+    });
+  }
+
+  setupWebSocket();
   return listener;
 }
 
@@ -232,12 +385,33 @@ export function startHealthCheck() {
 
     for (const [chainId, listener] of Object.entries(runtimeNetworkListeners)) {
       const timeSinceLastEvent = now - listener.lastEventTime;
+      const timeSinceLastBlockEvent = now - listener.lastBlockEventTime;
       const minutesSinceLastEvent = Math.floor(timeSinceLastEvent / 60000);
+      const minutesSinceLastBlockEvent = Math.floor(
+        timeSinceLastBlockEvent / 60000
+      );
 
       console.log(`[${chainId}] Status:`);
       console.log(`  - Active: ${listener.isActive}`);
+      console.log(`  - WS State: ${listener.ws?.readyState ?? "N/A"} (1=OPEN)`);
+      console.log(`  - Subscription: ${listener.subscriptionId ?? "none"}`);
       console.log(`  - Last event: ${minutesSinceLastEvent} minutes ago`);
+      console.log(
+        `  - Last block event: ${minutesSinceLastBlockEvent} minutes ago`
+      );
+      console.log(`  - Last block number: ${listener.lastBlockNumber}`);
       console.log(`  - Reconnect attempts: ${listener.reconnectAttempts}`);
+
+      if (
+        timeSinceLastEvent > MAX_IDLE_TIME &&
+        listener.isActive &&
+        timeSinceLastBlockEvent > MAX_IDLE_TIME
+      ) {
+        console.warn(
+          `[${chainId}] No events for ${minutesSinceLastEvent} minutes. Forcing reconnection...`
+        );
+        listener.reconnect();
+      }
     }
 
     console.log("====================");
@@ -248,33 +422,36 @@ export async function updateNetworkContractListener(
   chainId: number,
   contractAddress: string
 ): Promise<NetworkContractListener> {
-  let listener = runtimeNetworkListeners[chainId];
-  let previousContractAddress = await listener?.contract.getAddress();
+  const listener = runtimeNetworkListeners[chainId];
 
-  if (previousContractAddress === contractAddress && listener) {
+  if (listener?.contractAddress === contractAddress && listener) {
+    console.log(
+      `[${chainId}] Listener already exists for contract ${contractAddress}`
+    );
     return listener;
   }
 
   if (listener) {
+    console.log(`[${chainId}] Updating listener to new contract address`);
     await listener.stop();
   }
 
-  listener = await createtNetworkListener(chainId, contractAddress);
-  runtimeNetworkListeners[chainId] = listener;
+  const newListener = await createtNetworkListener(chainId, contractAddress);
+  runtimeNetworkListeners[chainId] = newListener;
 
-  return listener;
+  return newListener;
 }
 
 export async function updateNetworksListeners() {
-  let envChainIds = getEnvChainIdsForActiveListeners();
+  const envChainIds = getEnvChainIdsForActiveListeners();
 
   for (const chainId of envChainIds) {
     try {
       const { escrowContract } = getEcosystemDetails(chainId);
       await updateNetworkContractListener(chainId, escrowContract);
-      console.log(`Listener active on chain ${chainId}`);
+      console.log(`[${chainId}] Listener active on chain ${chainId}`);
     } catch (err) {
-      console.error(`Failed to start listener on chain ${chainId}:`, err);
+      console.error(`[${chainId}] Failed to start listener:`, err);
     }
   }
 
