@@ -20,6 +20,7 @@ export interface NetworkContractListener {
   lastBlockEventTime: number;
   lastBlockLogTime: number;
   lastBlockNumber?: number;
+  lastPollTime: number;
   httpProvider: ethers.JsonRpcProvider;
   subscriptionId: string | null;
   blockSubscriptionId: string | null;
@@ -29,6 +30,7 @@ export interface NetworkContractListener {
   reconnect: () => Promise<void>;
 }
 
+const MAX_IDLE_TIME = 5 * 60 * 1000; // 5 minutes
 const MAX_RECONNECT_ATTEMPTS = 10;
 const RECONNECT_DELAY = 5000; // 5 seconds
 const HEALTH_CHECK_INTERVAL = 60000; // 1 minute
@@ -58,8 +60,9 @@ export async function createtNetworkListener(
     isActive: true,
     reconnectAttempts: 0,
     lastEventTime: Date.now(),
-    lastBlockEventTime: 0,
+    lastBlockEventTime: Date.now(),
     lastBlockLogTime: 0,
+    lastPollTime: 0,
     subscriptionId: null,
     blockSubscriptionId: null,
     iface,
@@ -229,8 +232,8 @@ export async function createtNetworkListener(
             });
 
             listener.reconnectAttempts = 0;
+            listener.lastPollTime = Date.now();
 
-            // Log every 50 blocks
             const blockNumber = parseInt(response, 16);
             if (
               listener.lastBlockNumber === undefined ||
@@ -395,7 +398,6 @@ export function startHealthCheck() {
       console.log(`  - Last block number: ${listener.lastBlockNumber}`);
       console.log(`  - Reconnect attempts: ${listener.reconnectAttempts}`);
 
-      const MAX_IDLE_TIME = 1 * 60 * 1000; // 5 minutes
       if (
         timeSinceLastEvent > MAX_IDLE_TIME &&
         listener.isActive &&
