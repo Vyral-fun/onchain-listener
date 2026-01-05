@@ -57,6 +57,9 @@ export async function recordJobYapsActivity(yaps: Yap[], jobId: string) {
     transactionHash: ev.transactionHash ?? "",
   }));
 
+  console.log(
+    `Fetched ${jobEvents.length} contract events for job ${jobId} to record yap activities`
+  );
   for (const yap of yaps) {
     await recordYapperClusterQueue.add(
       "recordYapperCluster",
@@ -80,4 +83,8 @@ export async function stopJobContractEventListener(jobId: string) {
   await unsubscribeJobFromContractListener(jobId);
   const yaps = await getJobYaps(jobId);
   await recordJobYapsActivity(yaps, jobId);
+
+  console.log(
+    `Stopped contract event listener for job ${jobId} after recording yap activities`
+  );
 }

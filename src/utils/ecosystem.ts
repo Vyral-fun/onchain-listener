@@ -20,6 +20,18 @@ export function getEcosystemDetails(chainId: number) {
   return details;
 }
 
+function mapNodeEnvToEcosystemEnv() {
+  return Bun.env.NODE_ENV === "production" ? "prod" : "development";
+}
+
+export function getEnvChainIdsForActiveListeners(): number[] {
+  const env = mapNodeEnvToEcosystemEnv();
+
+  return ECOSYSTEM_DETAILS.filter(
+    (e) => e.env === env && e.forActiveListener
+  ).map((e) => e.chainId);
+}
+
 export function getAlchemyInstance(chainId: number): Alchemy {
   if (!alchemyCache[chainId]) {
     const details = ECOSYSTEM_DETAILS.find((eco) => eco.chainId === chainId);

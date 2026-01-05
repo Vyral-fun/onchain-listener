@@ -5,13 +5,15 @@
   "private": true,
   "devDependencies": {
     "@types/bun": "latest",
-    "dotenv": "^17.2.2"
+    "dotenv": "^17.2.2",
+    "rimraf": "^6.1.2"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "dependencies": {
     "@coinbase/onchainkit": "^0.38.19",
+    "@types/ws": "^8.18.1",
     "alchemy-sdk": "^3.6.3",
     "bullmq": "^5.58.5",
     "drizzle-kit": "^0.31.4",
@@ -23,22 +25,23 @@
     "pg": "^8.16.3",
     "postgres": "^3.4.7",
     "viem": "^2.37.5",
+    "ws": "^8.18.3",
     "zod": "^3.24.2"
   },
   "scripts": {
     "start": "bun index.ts",
-    "lint": "bunx eslint . --ext .ts,.tsx && echo \"\\x1B[32m🧹 Codebase is squeaky clean! No lint goblins found.\\x1B[0m\" || echo \"\\x1B[31m🚨 Lint gremlins detected! Call the code exorcist.\\x1B[0m\"",
-    "format": "bunx prettier --check . && echo \"\\x1B[32m🎯 Formatting flawless! Code is as pretty as a unicorn in a tux.\\x1B[0m\" || echo \"\\x1B[31m🎨 Formatting chaos! Someone handed the paintbrush to a cat.\\x1B[0m\"",
-    "format:fix": "bunx prettier --write . && echo \"\\x1B[32m🛠️ Format fix applied. Your code now sparkles like a supernova.\\x1B[0m\"",
-    "typecheck": "tsc --noEmit && echo '✅ All systems go, captain! TypeScript has verification successful.' || echo '❌ Shields down! TypeScript found anomalies in the code matrix.'",
-    "build": "rimraf dist && bun build src/**/*.{ts,json} index.ts drizzle.config.ts --outdir=dist --target=bun --splitting",
+    "lint": "bunx eslint . --ext .ts,.tsx",
+    "format": "bunx prettier --check .",
+    "format:fix": "bunx prettier --write .",
+    "typecheck": "tsc --noEmit",
+    "build": "rm -rf dist && bun build index.ts drizzle.config.ts --outdir=dist --target=bun --splitting",
     "dev": "bun --watch index.ts",
     "db:check": "drizzle-kit push:pg --dry-run",
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
     "db:generate-custom": "drizzle-kit generate --custom",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio",
-    "health:check": "curl -sf http://localhost:4000/health | grep 'OK' > /dev/null && echo \"\\x1B[32m🏥 Health Check: Ship is sailing smoothly.\\x1B[0m\" || { echo \"\\x1B[31m🛑 Health Check: Hull breach detected!\\x1B[0m\"; exit 1; }"
+    "db:studio": "drizzle-kit studio --port=5555",
+    "health:check": "curl -sf http://localhost:${PORT:-4000}/health"
   }
 }

@@ -1,0 +1,50 @@
+name: Deploy Onchain-Listener to EC2 on Staging
+
+on:
+  push:
+    branches:
+      - staging
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1.2.1
+        with:
+          bun-version: latest
+      - run: bun install
+      - run: bun run lint
+      - run: bun run format
+      - run: bun run typecheck
+      - run: bun run build
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.STAGING_EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.STAGING_EC2_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy Onchain-Listener on EC2
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          ssh -i ~/.ssh/id_rsa ${{ secrets.STAGING_EC2_USER }}@${{ secrets.STAGING_EC2_HOST }} << EOF
+            set -e
+            cd ${{ secrets.STAGING_ONCHAIN_LISTENER_APP_DIR }}
+            git reset --hard
+            git pull https://x-access-token:${GH_PAT}@github.com/Vyral-fun/onchain-listener.git staging
+            /home/ubuntu/.bun/bin/bun install
+            /home/ubuntu/.bun/bin/bun db:migrate || true
+            /home/ubuntu/.bun/bin/bunx pm2 update
+            /home/ubuntu/.bun/bin/bunx pm2 restart onchain-listener --update-env.
+            /home/ubuntu/.bun/bin/bunx pm2 save
+          EOF

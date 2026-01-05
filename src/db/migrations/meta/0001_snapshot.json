@@ -1,6 +1,6 @@
 {
-  "id": "494d25df-83c8-4d67-a4ac-67d07a34024e",
-  "prevId": "a15d1127-f46a-4a06-ae52-ce1b046d8478",
+  "id": "992b1d07-4191-49bd-9a58-692d80d04c0f",
+  "prevId": "03346784-2741-498a-bb9b-f863bd49da49",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -336,6 +336,87 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.onchain_job_invites": {
+      "name": "onchain_job_invites",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "yapper_profile_id": {
+          "name": "yapper_profile_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "invitee_x_username": {
+          "name": "invitee_x_username",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "invitee_wallet_address": {
+          "name": "invitee_wallet_address",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "unique_yapper_wallet_invite": {
+          "name": "unique_yapper_wallet_invite",
+          "columns": [
+            {
+              "expression": "yapper_profile_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "invitee_wallet_address",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "unique_yapper_xname_invite": {
+          "name": "unique_yapper_xname_invite",
+          "columns": [
+            {
+              "expression": "yapper_profile_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "invitee_x_username",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"onchain_job_invites\".\"invitee_x_username\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.yappers_derived_address_activity": {
       "name": "yappers_derived_address_activity",
       "schema": "",
@@ -348,6 +429,12 @@
         },
         "yapperid": {
           "name": "yapperid",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "yapper_username": {
+          "name": "yapper_username",
           "type": "varchar",
           "primaryKey": false,
           "notNull": true

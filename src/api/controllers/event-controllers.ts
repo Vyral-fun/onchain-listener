@@ -55,7 +55,7 @@ export async function startContractEventListener(c: Context) {
     let stopDelayMs = endDate.getTime() - Date.now();
 
     if (Bun.env.NODE_ENV !== "production") {
-      stopDelayMs = 3 * 60 * 1000;
+      stopDelayMs = 4 * 60 * 1000;
     }
 
     await stopJobQueue.add(
@@ -237,6 +237,66 @@ export async function getJobClusters(c: Context) {
       .from(yappersDerivedAddressActivity)
       .where(eq(yappersDerivedAddressActivity.jobId, jobId));
 
+    const jobAddresses = await db
+      .select({
+        senders: contractEvents.sender,
+        receivers: contractEvents.receiver,
+        contractAddress: contractEvents.contractAddress,
+      })
+      .from(contractEvents)
+      .where(eq(contractEvents.jobId, jobId));
+
+    const uniqueJobAddresses = Array.from(
+      new Set(
+        jobAddresses.flatMap((addr) => [
+          addr.senders,
+          addr.receivers,
+          addr.contractAddress,
+        ])
+      )
+    ).filter(
+      (addr) =>
+        addr &&
+        addr !== NULL_ADDRESS &&
+        addr.startsWith("0x") &&
+        addr !== jobAddresses[0]?.contractAddress
+    );
+
+    const yapperDerivedAddresses = Array.from(
+      new Set(activities.flatMap((addr) => [addr.yapperAddress, addr.address]))
+    ).filter(
+      (addr) =>
+        addr &&
+        addr !== NULL_ADDRESS &&
+        addr.startsWith("0x") &&
+        addr !== jobAddresses[0]?.contractAddress
+    );
+
+    const interactedYapperAddresses = Array.from(
+      new Set(
+        activities
+          .filter((act) => act.interacted)
+          .flatMap((addr) => [addr.yapperAddress, addr.address])
+      )
+    ).filter(
+      (addr) =>
+        addr &&
+        addr !== NULL_ADDRESS &&
+        addr.startsWith("0x") &&
+        addr !== jobAddresses[0]?.contractAddress
+    );
+
+    const yapperDerivedSet = new Set(yapperDerivedAddresses);
+
+    const interactedYapperCount = interactedYapperAddresses.filter((addr) =>
+      yapperDerivedSet.has(addr)
+    ).length;
+
+    const yapperInteractionPercentage =
+      yapperDerivedAddresses.length === 0
+        ? 0
+        : (interactedYapperCount / yapperDerivedAddresses.length) * 100;
+
     const clustersMap: Record<string, typeof activities> = {};
     for (const act of activities) {
       if (!clustersMap[act.yapperid]) {
@@ -264,7 +324,40 @@ export async function getJobClusters(c: Context) {
       }))
     );
 
-    return c.json({ clusters: serializedClusters }, 200);
+    const yapperInteractionCounts = Object.entries(clustersMap).map(
+      ([yapperId, acts]) => {
+        const interactedCount = acts.filter((act) => act.interacted).length;
+        const totalAddresses = acts.length;
+        const yapperUserId = acts[0]?.yapperUserId;
+        const yapperUsername = acts[0]?.yapperUsername;
+
+        return {
+          yapperId,
+          yapperUserId,
+          yapperUsername,
+          interactedCount,
+          totalAddresses,
+          interactionRate:
+            totalAddresses > 0 ? (interactedCount / totalAddresses) * 100 : 0,
+        };
+      }
+    );
+
+    const topContributors = yapperInteractionCounts
+      .sort((a, b) => b.interactedCount - a.interactedCount)
+      .slice(0, 5);
+
+    return c.json(
+      {
+        totalUniqueWalletsDuringJob: uniqueJobAddresses.length,
+        interactionPercentage: Number(yapperInteractionPercentage.toFixed(2)),
+        totalYapperDerivedAddresses: yapperDerivedAddresses.length,
+        interactedYapperCount: interactedYapperCount,
+        topContributors,
+        clusters: serializedClusters,
+      },
+      200
+    );
   } catch (error) {
     console.error("Yap.onchainListener.getJobClusters.error: ", error);
     return c.json({ error: "Internal server error" }, 500);

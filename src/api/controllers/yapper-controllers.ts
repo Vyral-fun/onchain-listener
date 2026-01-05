@@ -1,5 +1,5 @@
 import type { Context } from "hono";
-import { eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { db } from "../../db";
 import { onchainJobInvites } from "@/db/schema/event";
 import z from "zod";
@@ -17,7 +17,7 @@ export async function joinOnchainInvite(c: Context) {
 
   try {
     const body = await c.req.json();
-    const { referralCode, name, walletAddress } = body;
+    const { username, walletAddress } = body;
 
     const parsed = joinOnchainInviteSchema.safeParse(body);
     if (!parsed.success) {
@@ -27,12 +27,28 @@ export async function joinOnchainInvite(c: Context) {
       );
     }
 
+    const existingInvite = await db
+      .select()
+      .from(onchainJobInvites)
+      .where(
+        and(
+          eq(onchainJobInvites.yapperProfileId, yapperProfileId),
+          or(
+            eq(onchainJobInvites.inviteeWalletAdress, walletAddress),
+            eq(onchainJobInvites.inviteeXName, username)
+          )
+        )
+      )
+      .limit(1);
+    if (existingInvite.length > 0) {
+      return c.json({ error: "User has already been referred" }, 400);
+    }
+
     const [invite] = await db
       .insert(onchainJobInvites)
       .values({
         yapperProfileId,
-        referralCode,
-        inviteeXName: name,
+        inviteeXName: username,
         inviteeWalletAdress: walletAddress,
       })
       .returning();

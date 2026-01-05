@@ -57,6 +57,7 @@ export async function recordYapperClusterActivity(
   };
 
   const allAddresses = [
+    yap.walletAddress,
     ...(twitterAddresses || []),
     ...(addressesData.allAddresses || []),
     ...(yapMarketAddresses || []),
@@ -76,6 +77,7 @@ export async function recordYapperClusterActivity(
 
     return {
       yapperid: yap.yapperid,
+      yapperUsername: yap.twitterUsername,
       yapperUserId: yap.userId,
       jobId: matchingEvent?.jobId ?? yap.jobId,
       yapperAddress: yap.walletAddress,

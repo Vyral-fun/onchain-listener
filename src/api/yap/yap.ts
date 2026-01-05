@@ -1,7 +1,5 @@
 import type { Yap } from "@/services/yappers";
-
-const YAP_API_URL = Bun.env.YAP_API_URL;
-const YAP_API_KEY = Bun.env.YAP_API_KEY;
+import { YAP_API_KEY, YAP_API_URL } from "@/utils/constants";
 
 export async function getYapMarketAddresses(
   twitterNames: string[]
@@ -62,6 +60,8 @@ export async function getJobYaps(jobId: string): Promise<Yap[]> {
       console.warn("getJobYaps: response was not an array", data);
       return [];
     }
+
+    console.log(`Fetched ${data.length} yaps for job ${jobId}`);
 
     return data.map((item: any) => ({
       yapperid: item.yapperId,
