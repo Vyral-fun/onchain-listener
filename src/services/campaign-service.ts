@@ -9,6 +9,10 @@ import { handleYapRequestCreated } from "@/api/jobs/jobs";
 import { LOG_INTERVAL_MS, NULL_ADDRESS } from "@/utils/constants";
 import WebSocket from "ws";
 
+type ERC20 = {
+  decimals(): Promise<number>;
+};
+
 export interface NetworkContractListener {
   ws: WebSocket;
   abi: any;
@@ -284,7 +288,7 @@ export async function createtNetworkListener(
                       asset,
                       erc20Abi,
                       httpProvider
-                    );
+                    ) as unknown as ERC20;
                     decimals = await tokenContract.decimals();
                   } catch (error) {
                     console.error(
