@@ -15,6 +15,13 @@
       "when": 1764150730127,
       "tag": "0001_open_frank_castle",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1767714571155,
+      "tag": "0002_dear_bug",
+      "breakpoints": true
     }
   ]
 }

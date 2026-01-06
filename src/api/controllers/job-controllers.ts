@@ -8,6 +8,9 @@ import {
 } from "@/db/schema/event";
 import { eq, desc, sql } from "drizzle-orm";
 import { NULL_ADDRESS } from "@/utils/constants";
+import { JobOnchainRewardBodySchema } from "@/zod/yapper";
+import { getJobActivityDetails, type Job } from "@/services/job-service";
+import { getYapperOnchainReward } from "@/services/yappers";
 
 export async function getJobEvents(c: Context) {
   const jobId = c.req.param("jobId");
@@ -341,6 +344,71 @@ export async function getJobOnchainLeaderboard(c: Context) {
       "Yap.onchainListener.getJobOnchainLeaderboard.error: ",
       error
     );
+    return c.json({ error: "Internal server error" }, 500);
+  }
+}
+
+export async function getJobOnchainRewards(c: Context) {
+  const jobId = c.req.param("jobId");
+  const body = await c.req.json();
+
+  const validatedParams = z
+    .object({
+      jobId: z.string().length(21, {
+        message: "Job id must be 21 characters long",
+      }),
+    })
+    .safeParse({ jobId });
+
+  if (!validatedParams.success) {
+    return c.json({ error: validatedParams.error }, 400);
+  }
+
+  const validatedBody = JobOnchainRewardBodySchema.safeParse(body);
+  if (!validatedBody.success) {
+    return c.json({ error: validatedBody.error }, 400);
+  }
+
+  const { yaps, onchainHeirarchy, onchainReward } = validatedBody.data;
+
+  try {
+    const jobActivity = await getJobActivityDetails(jobId);
+
+    if (jobActivity.addresses.length === 0 && jobActivity.value === 0) {
+      return c.json({
+        jobId,
+        hierarchy: onchainHeirarchy,
+        totalReward: onchainReward,
+        rewards: yaps.map((yap) => ({
+          yapperAddress: yap.walletAddress,
+          reward: 0n,
+        })),
+      });
+    }
+
+    const job: Job = {
+      id: jobId,
+      onchainHeirarchy,
+      onchainReward,
+      addresses: jobActivity.addresses,
+      value: jobActivity.value,
+    };
+
+    const rewards = await Promise.all(
+      yaps.map((yap) => getYapperOnchainReward(yap, job))
+    );
+
+    return c.json({
+      jobId,
+      hierarchy: onchainHeirarchy,
+      totalReward: onchainReward,
+      rewards: rewards.map((r) => ({
+        yapperAddress: r.yapperAddress,
+        reward: r.reward.toString(),
+      })),
+    });
+  } catch (error) {
+    console.error("Yap.onchainListener.getJobOnchainRewards.error: ", error);
     return c.json({ error: "Internal server error" }, 500);
   }
 }
