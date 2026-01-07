@@ -313,22 +313,21 @@ export async function getJobOnchainLeaderboard(c: Context) {
     return c.json({ error: validatedParams.error }, 400);
   }
 
-  const orderBy =
-    validatedParams.data.sortBy === "totalValue"
-      ? desc(sql`totalValue`)
-      : desc(sql`interactionCount`);
-
   try {
+    const interactionCount = sql<number>`
+      COUNT(*) FILTER (WHERE ${yappersDerivedAddressActivity.interacted} = true)
+    `.as("interactionCount");
+
+    const totalValue = sql<string>`
+      COALESCE(SUM(${yappersDerivedAddressActivity.value}), 0)
+    `.as("totalValue");
+
     const leaderboard = await db
       .select({
         yapperId: yappersDerivedAddressActivity.yapperid,
         yapperUsername: yappersDerivedAddressActivity.yapperUsername,
-
-        interactionCount: sql<number>`
-          COUNT(*) FILTER (WHERE ${yappersDerivedAddressActivity.interacted} = true)
-        `,
-
-        totalValue: sql<string>`COALESCE(SUM(${yappersDerivedAddressActivity.value}), 0)`,
+        interactionCount,
+        totalValue,
       })
       .from(yappersDerivedAddressActivity)
       .where(eq(yappersDerivedAddressActivity.jobId, jobId))
@@ -336,7 +335,11 @@ export async function getJobOnchainLeaderboard(c: Context) {
         yappersDerivedAddressActivity.yapperid,
         yappersDerivedAddressActivity.yapperUsername
       )
-      .orderBy(orderBy);
+      .orderBy(
+        validatedParams.data.sortBy === "totalValue"
+          ? desc(totalValue)
+          : desc(interactionCount)
+      );
 
     return c.json({ success: true, leaderboard }, 200);
   } catch (error) {
