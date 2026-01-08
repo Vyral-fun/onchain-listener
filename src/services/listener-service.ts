@@ -447,7 +447,8 @@ async function routeEventToJobs(
     .where(
       and(
         eq(sql`LOWER(${jobs.contractAddress})`, event.address.toLowerCase()),
-        eq(jobs.chainId, listener.chainId)
+        eq(jobs.chainId, listener.chainId),
+        eq(jobs.isActive, true)
       )
     );
 
