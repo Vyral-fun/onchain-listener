@@ -2,7 +2,7 @@ import { ethers } from "ethers";
 import { db } from "@/db";
 import { contractEvents, contractListeners, jobs } from "@/db/schema/event";
 import { getEcosystemDetails } from "@/utils/ecosystem";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { NULL_ADDRESS } from "@/utils/constants";
 import WebSocket from "ws";
 
@@ -63,6 +63,16 @@ export async function subscribeJobToContractListener(
         `Invalid events not found in contract ABI: ${invalid.join(", ")}`
       );
     }
+  }
+
+  const existingJob = await db
+    .select()
+    .from(jobs)
+    .where(eq(jobs.id, jobId))
+    .limit(1);
+
+  if (existingJob.length > 0) {
+    throw new Error(`Job with ID '${jobId}' already exists.`);
   }
 
   await db.insert(jobs).values({
@@ -424,6 +434,9 @@ async function routeEventToJobs(
   listener: ContractListener
 ) {
   const eventName = event.name;
+  console.log(
+    `Routing event '${eventName}' from contract ${event.address} on chain ${listener.chainId}`
+  );
 
   const jobRows = await db
     .select({
@@ -433,18 +446,22 @@ async function routeEventToJobs(
     .from(jobs)
     .where(
       and(
-        eq(jobs.contractAddress, event.address),
+        eq(sql`LOWER(${jobs.contractAddress})`, event.address.toLowerCase()),
         eq(jobs.chainId, listener.chainId)
       )
     );
 
-  if (!jobRows) {
+  if (!jobRows || jobRows.length === 0) {
+    console.log(`No jobs found for contract: ${event.address}`);
     return;
   }
 
   const interestedJobs = jobRows
     .filter((job) => job.events.length === 0 || job.events.includes(eventName))
     .map((j) => j.id);
+
+  console.log(`interestedJobs:`, interestedJobs);
+  console.log(`jobRows:`, jobRows);
 
   if (interestedJobs.length > 0) {
     console.log(
