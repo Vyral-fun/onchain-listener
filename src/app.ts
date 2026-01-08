@@ -34,8 +34,13 @@ app.use(
   cors({
     origin:
       Bun.env.NODE_ENV === "production"
-        ? [Bun.env.CLIENT_URL]
-        : [Bun.env.CLIENT_URL, "http://localhost:4000", "localhost:4000"],
+        ? [Bun.env.CLIENT_URL, Bun.env.YAP_CLIENT_URL]
+        : [
+            Bun.env.CLIENT_URL,
+            "http://localhost:4000",
+            "localhost:4000",
+            Bun.env.YAP_CLIENT_URL,
+          ],
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     exposeHeaders: ["Content-Length"],
     credentials: true,
