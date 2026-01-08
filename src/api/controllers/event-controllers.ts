@@ -4,7 +4,7 @@ import z from "zod";
 import { subscribeListenerSchema } from "@/zod/events";
 import { subscribeJobToContractListener } from "@/services/listener-service";
 import { leaderboardUpdateQueue, stopJobQueue } from "@/services/queue";
-import { UPDATE_INTERVAL_HOURS } from "@/utils/constants";
+import { UPDATE_INTERVAL_MS } from "@/utils/constants";
 
 export async function startContractEventListener(c: Context) {
   const jobId = c.req.param("jobId");
@@ -65,7 +65,7 @@ export async function startContractEventListener(c: Context) {
       { jobId },
       {
         repeat: {
-          every: UPDATE_INTERVAL_HOURS * 60 * 60 * 1000,
+          every: UPDATE_INTERVAL_MS,
         },
         jobId: `leaderboard:${jobId}`,
       }
