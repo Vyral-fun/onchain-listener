@@ -1,10 +1,15 @@
-import { contractEvents, jobs } from "@/db/schema/event";
+import {
+  contractEvents,
+  jobs,
+  yappersDerivedAddressActivity,
+} from "@/db/schema/event";
 import { type Yap } from "./yappers";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { recordYapperClusterQueue } from "./queue";
+import { leaderboardUpdateQueue, recordYapperClusterQueue } from "./queue";
 import { unsubscribeJobFromContractListener } from "./listener-service";
 import { getJobYaps } from "@/api/yap/yap";
+import { NULL_ADDRESS } from "@/utils/constants";
 
 export interface ContractJobEvents {
   jobId: string;
@@ -15,6 +20,14 @@ export interface ContractJobEvents {
   contractAddress: string;
   value: number;
   transactionHash: string;
+}
+
+export interface Job {
+  id: string;
+  onchainHeirarchy: "value" | "interactionCount";
+  onchainReward: number;
+  addresses: string[];
+  value: number;
 }
 
 export async function recordJobYapsActivity(yaps: Yap[], jobId: string) {
@@ -74,17 +87,67 @@ export async function recordJobYapsActivity(yaps: Yap[], jobId: string) {
       }
     );
     console.log(
-      `✅ Enqueued yapper ${yap.yapperid} for job ${jobId} into recordYapperClusterQueue`
+      `Enqueued yapper ${yap.yapperid} for job ${jobId} into recordYapperClusterQueue`
     );
   }
 }
 
 export async function stopJobContractEventListener(jobId: string) {
   await unsubscribeJobFromContractListener(jobId);
+
+  const schedulerId = `leaderboard-${jobId}`;
+  try {
+    await leaderboardUpdateQueue.removeJobScheduler(schedulerId);
+    console.log(`Removed periodic leaderboard scheduler for job ${jobId}`);
+  } catch (err) {
+    console.warn(`Could not remove leaderboard scheduler for ${jobId}`, err);
+  }
+
+  try {
+    await updateJobOnchainLeaderboard(jobId);
+    console.log(`Final leaderboard update done for job ${jobId}`);
+  } catch {}
+
+  console.log(`Stopped contract event listener for job ${jobId}`);
+}
+
+export async function updateJobOnchainLeaderboard(jobId: string) {
   const yaps = await getJobYaps(jobId);
   await recordJobYapsActivity(yaps, jobId);
 
   console.log(
-    `Stopped contract event listener for job ${jobId} after recording yap activities`
+    `Updated on-chain leaderboard for job ${jobId} after recording yap activities`
   );
+}
+
+export async function getJobActivityDetails(jobId: string): Promise<{
+  addresses: string[];
+  value: number;
+}> {
+  const result = await db
+    .select({
+      yapperAddress: yappersDerivedAddressActivity.yapperAddress,
+      address: yappersDerivedAddressActivity.address,
+      value: yappersDerivedAddressActivity.value,
+    })
+    .from(yappersDerivedAddressActivity)
+    .where(eq(yappersDerivedAddressActivity.jobId, jobId));
+
+  const uniqueAddressesSet = new Set<string>();
+  let totalValue = 0;
+
+  for (const row of result) {
+    if (row.address && row.address !== NULL_ADDRESS) {
+      uniqueAddressesSet.add(row.address);
+    }
+    if (row.yapperAddress && row.yapperAddress !== NULL_ADDRESS) {
+      uniqueAddressesSet.add(row.yapperAddress);
+    }
+    totalValue += Number(row.value ?? 0);
+  }
+
+  return {
+    addresses: Array.from(uniqueAddressesSet),
+    value: totalValue,
+  };
 }

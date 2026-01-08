@@ -93,7 +93,15 @@ export const yappersDerivedAddressActivity = pgTable(
     value: numeric("value", { mode: "bigint" }),
     transactionHash: varchar("transaction_hash", { length: 66 }),
     interacted: boolean("interacted").default(false),
-  }
+    lastUpdated: timestamp("last_updated").defaultNow(),
+  },
+  (table) => ({
+    uniqueYapperAddressJob: unique().on(
+      table.yapperid,
+      table.address,
+      table.jobId
+    ),
+  })
 );
 
 export const onchainJobInvites = pgTable(

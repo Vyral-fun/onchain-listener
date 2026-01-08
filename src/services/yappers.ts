@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { checkENS, getOnchainAddressesInteractedWith } from "./address";
-import type { ContractJobEvents } from "./job-service";
+import { type ContractJobEvents, type Job } from "./job-service";
 import { getTwitterFollowersName } from "../api/twitter/twitter";
 import { BATCH_SIZE, NULL_ADDRESS } from "@/utils/constants";
 import {
@@ -8,7 +8,7 @@ import {
   yappersDerivedAddressActivity,
 } from "@/db/schema/event";
 import { getYapMarketAddresses } from "@/api/yap/yap";
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 export interface Yap {
   yapperid: string;
@@ -68,31 +68,75 @@ export async function recordYapperClusterActivity(
     new Set(allAddresses.filter((a) => a && a !== NULL_ADDRESS))
   );
 
+  const eventsByAddress = new Map<string, ContractJobEvents[]>();
+
+  for (const event of contractEvents) {
+    const sender = event.sender.toLowerCase();
+    const receiver = event.reciever.toLowerCase();
+
+    if (!eventsByAddress.has(sender)) {
+      eventsByAddress.set(sender, []);
+    }
+    if (!eventsByAddress.has(receiver)) {
+      eventsByAddress.set(receiver, []);
+    }
+
+    eventsByAddress.get(sender)?.push(event);
+    if (sender !== receiver) {
+      eventsByAddress.get(receiver)?.push(event);
+    }
+  }
+
   const records = filtered.map((addr) => {
-    const matchingEvent = contractEvents.find(
-      (ev) =>
-        ev.sender.toLowerCase() === addr.toLowerCase() ||
-        ev.reciever.toLowerCase() === addr.toLowerCase()
+    const addressLower = addr.toLowerCase();
+    const matchingEvents = eventsByAddress.get(addressLower) || [];
+
+    const totalValue = matchingEvents.reduce(
+      (sum, ev) => sum + BigInt(ev.value || 0),
+      0n
     );
+
+    const interactionCount = matchingEvents.length;
+    const hasInteraction = interactionCount > 0;
+
+    const latestEvent = matchingEvents[matchingEvents.length - 1];
 
     return {
       yapperid: yap.yapperid,
       yapperUsername: yap.twitterUsername,
       yapperUserId: yap.userId,
-      jobId: matchingEvent?.jobId ?? yap.jobId,
+      jobId: yap.jobId,
       yapperAddress: yap.walletAddress,
       address: addr,
-      event: matchingEvent?.eventName ?? null,
-      value: matchingEvent?.value ? BigInt(matchingEvent.value) : null,
-      transactionHash: matchingEvent?.transactionHash ?? null,
-      interacted: !!matchingEvent,
+      event: latestEvent?.eventName ?? null,
+      value: totalValue > 0n ? totalValue : null,
+      transactionHash: latestEvent?.transactionHash ?? null,
+      interacted: hasInteraction,
+      lastUpdated: new Date(),
     };
   });
 
   if (records.length > 0) {
     for (let i = 0; i < records.length; i += BATCH_SIZE) {
       const chunk = records.slice(i, i + BATCH_SIZE);
-      await db.insert(yappersDerivedAddressActivity).values(chunk);
+
+      await db
+        .insert(yappersDerivedAddressActivity)
+        .values(chunk)
+        .onConflictDoUpdate({
+          target: [
+            yappersDerivedAddressActivity.yapperid,
+            yappersDerivedAddressActivity.address,
+            yappersDerivedAddressActivity.jobId,
+          ],
+          set: {
+            value: sql`COALESCE(${yappersDerivedAddressActivity.value}, 0) + COALESCE(EXCLUDED.value, 0)`,
+            event: sql`EXCLUDED.event`,
+            transactionHash: sql`EXCLUDED.transaction_hash`,
+            interacted: sql`EXCLUDED.interacted OR ${yappersDerivedAddressActivity.interacted}`,
+            lastUpdated: sql`EXCLUDED.last_updated`,
+          },
+        });
     }
   }
 
@@ -116,5 +160,70 @@ export async function getYapperOnchainInvitesData(yapperId: string) {
       error
     );
     return [];
+  }
+}
+
+export async function getYapperOnchainReward(
+  yap: Yap,
+  job: Job
+): Promise<{ yapperAddress: string; reward: bigint }> {
+  try {
+    const hierarchy = job.onchainHeirarchy;
+    const yapperContribution = await db
+      .select({
+        interactionCount: sql<number>`
+          COUNT(*) FILTER (WHERE ${yappersDerivedAddressActivity.interacted} = true)
+        `,
+        totalValue: sql<string>`
+          COALESCE(SUM(${yappersDerivedAddressActivity.value}), 0)
+        `,
+      })
+      .from(yappersDerivedAddressActivity)
+      .where(
+        and(
+          eq(yappersDerivedAddressActivity.jobId, job.id),
+          eq(yappersDerivedAddressActivity.yapperid, yap.yapperid)
+        )
+      );
+
+    if (!yapperContribution || yapperContribution.length === 0) {
+      return { yapperAddress: yap.walletAddress, reward: 0n };
+    }
+
+    const contribution = yapperContribution[0];
+
+    let rewardPercentage: number;
+
+    if (hierarchy === "value") {
+      const yapperValue = BigInt(contribution!.totalValue || 0);
+      const totalValue = BigInt(job.value || 0);
+
+      if (totalValue === 0n) {
+        return { yapperAddress: yap.walletAddress, reward: 0n };
+      }
+
+      rewardPercentage = Number((yapperValue * 10000n) / totalValue) / 100;
+    } else {
+      const yapperInteractions = contribution!.interactionCount || 0;
+      const totalInteractions = job.addresses.length || 0;
+
+      if (totalInteractions === 0) {
+        return { yapperAddress: yap.walletAddress, reward: 0n };
+      }
+
+      rewardPercentage = (yapperInteractions / totalInteractions) * 100;
+    }
+
+    const rewardAmount = BigInt(
+      Math.floor((rewardPercentage / 100) * job.onchainReward)
+    );
+
+    return {
+      yapperAddress: yap.walletAddress,
+      reward: rewardAmount,
+    };
+  } catch (error: any) {
+    console.error("Yap.onchainListener.getYapperOnchainReward.error:", error);
+    return { yapperAddress: yap.walletAddress, reward: 0n };
   }
 }

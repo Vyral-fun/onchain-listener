@@ -1,0 +1,2 @@
+ALTER TABLE "yappers_derived_address_activity" ADD COLUMN "last_updated" timestamp DEFAULT now();--> statement-breakpoint
+ALTER TABLE "yappers_derived_address_activity" ADD CONSTRAINT "yappers_derived_address_activity_yapperid_address_job_id_unique" UNIQUE("yapperid","address","job_id");
