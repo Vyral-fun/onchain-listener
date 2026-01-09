@@ -48,7 +48,7 @@ export async function startContractEventListener(c: Context) {
     let stopDelayMs = endDate.getTime() - Date.now();
 
     if (Bun.env.NODE_ENV !== "production") {
-      stopDelayMs = 4 * 60 * 1000;
+      stopDelayMs = 15 * 60 * 1000; // 15 minutes for non-production
     }
 
     await stopJobQueue.add(

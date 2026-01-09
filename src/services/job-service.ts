@@ -24,7 +24,7 @@ export interface ContractJobEvents {
 
 export interface Job {
   id: string;
-  onchainHeirarchy: "value" | "interactionCount";
+  onchainHeirarchy: "volume" | "walletCount";
   onchainReward: number;
   addresses: string[];
   value: number;

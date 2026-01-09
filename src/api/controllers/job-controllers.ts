@@ -305,7 +305,7 @@ export async function getJobOnchainLeaderboard(c: Context) {
       jobId: z.string().length(21, {
         message: "Job id must be 21 characters long",
       }),
-      sortBy: z.enum(["interactionCount", "totalValue"]).optional(),
+      sortBy: z.enum(["walletCount", "volume"]).optional(),
     })
     .safeParse({ jobId, sortBy });
 
@@ -314,20 +314,20 @@ export async function getJobOnchainLeaderboard(c: Context) {
   }
 
   try {
-    const interactionCount = sql<number>`
+    const walletCount = sql<number>`
       COUNT(*) FILTER (WHERE ${yappersDerivedAddressActivity.interacted} = true)
-    `.as("interactionCount");
+    `.as("walletCount");
 
-    const totalValue = sql<string>`
+    const volume = sql<string>`
       COALESCE(SUM(${yappersDerivedAddressActivity.value}), 0)
-    `.as("totalValue");
+    `.as("volume");
 
     const leaderboard = await db
       .select({
         yapperId: yappersDerivedAddressActivity.yapperid,
         yapperUsername: yappersDerivedAddressActivity.yapperUsername,
-        interactionCount,
-        totalValue,
+        walletCount,
+        volume,
       })
       .from(yappersDerivedAddressActivity)
       .where(eq(yappersDerivedAddressActivity.jobId, jobId))
@@ -336,9 +336,9 @@ export async function getJobOnchainLeaderboard(c: Context) {
         yappersDerivedAddressActivity.yapperUsername
       )
       .orderBy(
-        validatedParams.data.sortBy === "totalValue"
-          ? desc(totalValue)
-          : desc(interactionCount)
+        validatedParams.data.sortBy === "volume"
+          ? desc(volume)
+          : desc(walletCount)
       );
 
     return c.json({ success: true, leaderboard }, 200);

@@ -51,7 +51,7 @@ export const YapSchema = z.object({
 });
 
 export const JobOnchainRewardBodySchema = z.object({
-  onchainHeirarchy: z.enum(["value", "interactionCount"]),
+  onchainHeirarchy: z.enum(["volume", "walletCount"]),
   onchainReward: z.number().int().positive("Reward must be a positive integer"),
   yaps: z.array(YapSchema).min(1, "At least one yap is required"),
 });
