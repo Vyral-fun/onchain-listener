@@ -65,7 +65,11 @@ export async function recordYapperClusterActivity(
   ];
 
   const filtered = Array.from(
-    new Set(allAddresses.filter((a) => a && a !== NULL_ADDRESS))
+    new Set(
+      allAddresses
+        .filter((a) => a && a !== NULL_ADDRESS)
+        .map((a) => a.toLowerCase())
+    )
   );
 
   const eventsByAddress = new Map<string, ContractJobEvents[]>();
@@ -88,8 +92,7 @@ export async function recordYapperClusterActivity(
   }
 
   const records = filtered.map((addr) => {
-    const addressLower = addr.toLowerCase();
-    const matchingEvents = eventsByAddress.get(addressLower) || [];
+    const matchingEvents = eventsByAddress.get(addr) || [];
 
     const totalValue = matchingEvents.reduce(
       (sum, ev) => sum + BigInt(ev.value || 0),
@@ -194,7 +197,7 @@ export async function getYapperOnchainReward(
 
     let rewardPercentage: number;
 
-    if (hierarchy === "value") {
+    if (hierarchy === "volume") {
       const yapperValue = BigInt(contribution!.totalValue || 0);
       const totalValue = BigInt(job.value || 0);
 
