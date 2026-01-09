@@ -137,7 +137,6 @@ export async function recordYapperClusterActivity(
             event: sql`EXCLUDED.event`,
             transactionHash: sql`EXCLUDED.transaction_hash`,
             interacted: sql`EXCLUDED.interacted OR ${yappersDerivedAddressActivity.interacted}`,
-            lastUpdated: sql`EXCLUDED.last_updated`,
           },
         });
     }
