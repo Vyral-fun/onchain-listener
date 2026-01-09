@@ -407,7 +407,7 @@ export async function getJobOnchainRewards(c: Context) {
       hierarchy: onchainHeirarchy,
       totalReward: onchainReward,
       rewards: rewards.map((r) => ({
-        yapperid: r.yapperAddress,
+        yapperid: r.yapperId,
         yapperAddress: r.yapperAddress,
         reward: r.reward.toString(),
       })),
