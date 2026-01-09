@@ -383,6 +383,7 @@ export async function getJobOnchainRewards(c: Context) {
         hierarchy: onchainHeirarchy,
         totalReward: onchainReward,
         rewards: yaps.map((yap) => ({
+          yapperid: yap.yapperid,
           yapperAddress: yap.walletAddress,
           reward: 0n,
         })),
@@ -406,6 +407,7 @@ export async function getJobOnchainRewards(c: Context) {
       hierarchy: onchainHeirarchy,
       totalReward: onchainReward,
       rewards: rewards.map((r) => ({
+        yapperid: r.yapperId,
         yapperAddress: r.yapperAddress,
         reward: r.reward.toString(),
       })),

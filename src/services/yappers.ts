@@ -169,7 +169,7 @@ export async function getYapperOnchainInvitesData(yapperId: string) {
 export async function getYapperOnchainReward(
   yap: Yap,
   job: Job
-): Promise<{ yapperAddress: string; reward: bigint }> {
+): Promise<{ yapperAddress: string; yapperId: string; reward: bigint }> {
   try {
     const hierarchy = job.onchainHeirarchy;
     const yapperContribution = await db
@@ -190,7 +190,11 @@ export async function getYapperOnchainReward(
       );
 
     if (!yapperContribution || yapperContribution.length === 0) {
-      return { yapperAddress: yap.walletAddress, reward: 0n };
+      return {
+        yapperAddress: yap.walletAddress,
+        yapperId: yap.yapperid,
+        reward: 0n,
+      };
     }
 
     const contribution = yapperContribution[0];
@@ -202,7 +206,11 @@ export async function getYapperOnchainReward(
       const totalValue = BigInt(job.value || 0);
 
       if (totalValue === 0n) {
-        return { yapperAddress: yap.walletAddress, reward: 0n };
+        return {
+          yapperAddress: yap.walletAddress,
+          yapperId: yap.yapperid,
+          reward: 0n,
+        };
       }
 
       rewardPercentage = Number((yapperValue * 10000n) / totalValue) / 100;
@@ -211,7 +219,11 @@ export async function getYapperOnchainReward(
       const totalInteractions = job.addresses.length || 0;
 
       if (totalInteractions === 0) {
-        return { yapperAddress: yap.walletAddress, reward: 0n };
+        return {
+          yapperAddress: yap.walletAddress,
+          yapperId: yap.yapperid,
+          reward: 0n,
+        };
       }
 
       rewardPercentage = (yapperInteractions / totalInteractions) * 100;
@@ -223,10 +235,15 @@ export async function getYapperOnchainReward(
 
     return {
       yapperAddress: yap.walletAddress,
+      yapperId: yap.yapperid,
       reward: rewardAmount,
     };
   } catch (error: any) {
     console.error("Yap.onchainListener.getYapperOnchainReward.error:", error);
-    return { yapperAddress: yap.walletAddress, reward: 0n };
+    return {
+      yapperAddress: yap.walletAddress,
+      yapperId: yap.yapperid,
+      reward: 0n,
+    };
   }
 }
