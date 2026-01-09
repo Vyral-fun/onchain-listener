@@ -113,7 +113,7 @@ export async function recordYapperClusterActivity(
       address: addr,
       event: latestEvent?.eventName ?? null,
       value: totalValue > 0n ? totalValue : null,
-      transactionHash: latestEvent?.transactionHash ?? null,
+      transactionHash: latestEvent?.transactionHash.toLowerCase() ?? null,
       interacted: hasInteraction,
       lastUpdated: new Date(),
     };
