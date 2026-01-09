@@ -109,7 +109,7 @@ export async function recordYapperClusterActivity(
       yapperUsername: yap.twitterUsername,
       yapperUserId: yap.userId,
       jobId: yap.jobId,
-      yapperAddress: yap.walletAddress,
+      yapperAddress: yap.walletAddress.toLowerCase(),
       address: addr,
       event: latestEvent?.eventName ?? null,
       value: totalValue > 0n ? totalValue : null,
