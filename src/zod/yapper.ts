@@ -24,9 +24,7 @@ export const YapSchema = z.object({
   yapperid: z.string().length(21, {
     message: "yapper id must be 21 characters long",
   }),
-  userId: z.string().length(21, {
-    message: "user id must be 21 characters long",
-  }),
+  userId: z.string(),
   jobId: z.string().length(21, {
     message: "Job id must be 21 characters long",
   }),
