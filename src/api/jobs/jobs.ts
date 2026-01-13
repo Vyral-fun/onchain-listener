@@ -8,7 +8,8 @@ export async function handleYapRequestCreated(
   chainId: number,
   txHash: string,
   creator: string,
-  asset: string
+  asset: string,
+  blockNumber: number
 ) {
   try {
     const formData = new FormData();
@@ -45,6 +46,10 @@ export async function handleYapRequestCreated(
       );
       return;
     }
+
+    console.log(
+      `[${chainId}] Successfully processed YapRequestCreated for jobId: ${jobId} at block ${blockNumber}`
+    );
   } catch (err) {
     console.error("handleYapRequestCreated error:", err);
   }

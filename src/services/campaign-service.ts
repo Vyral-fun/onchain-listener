@@ -2,12 +2,10 @@ import {
   getEcosystemDetails,
   getEnvChainIdsForActiveListeners,
 } from "@/utils/ecosystem";
-import { abi } from "../escrowV2.json";
 import { abi as erc20Abi } from "../erc20.json";
 import { ethers } from "ethers";
 import { handleYapRequestCreated } from "@/api/jobs/jobs";
-import { LOG_INTERVAL_MS, NULL_ADDRESS } from "@/utils/constants";
-import WebSocket from "ws";
+import { NULL_ADDRESS } from "@/utils/constants";
 
 type ERC20 = {
   decimals(): Promise<number>;
@@ -42,7 +40,7 @@ export async function createNetworkListener(
   chainId: number,
   contractAddress: string
 ): Promise<NetworkContractListener> {
-  const { rpcUrl } = getEcosystemDetails(chainId);
+  const { rpcUrl, abi } = getEcosystemDetails(chainId);
 
   const iface = new ethers.Interface(abi);
   const httpProvider = new ethers.JsonRpcProvider(rpcUrl);
@@ -174,10 +172,8 @@ async function startPolling(listener: NetworkContractListener) {
                 chainId,
                 log.transactionHash,
                 creator,
-                asset
-              );
-              console.log(
-                `[${chainId}] Successfully processed YapRequestCreated for jobId: ${jobId} at block ${log.blockNumber}`
+                asset,
+                log.blockNumber
               );
             } catch (error) {
               console.error(
