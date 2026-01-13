@@ -1,4 +1,6 @@
-import { Alchemy, Network } from "alchemy-sdk";
+import { Network } from "alchemy-sdk";
+import { abi as escrowV2Abi } from "../escrowV2.json";
+import { abi as monadEscrowV2Abi } from "../monadEscrowV2.json";
 
 export const BATCH_SIZE = 500;
 
@@ -22,6 +24,7 @@ export const ECOSYSTEM_DETAILS = [
     wsUrl: Bun.env.BASE_SEPOLIA_WS_PROVIDER_URL,
     env: "development",
     forActiveListener: true,
+    abi: escrowV2Abi,
   },
   {
     chainId: 8453,
@@ -33,6 +36,7 @@ export const ECOSYSTEM_DETAILS = [
     wsUrl: Bun.env.BASE_MAINNET_WS_PROVIDER_URL,
     env: "prod",
     forActiveListener: true,
+    abi: escrowV2Abi,
   },
   {
     chainId: 10143,
@@ -44,6 +48,7 @@ export const ECOSYSTEM_DETAILS = [
     wsUrl: Bun.env.MONAD_WS_PROVIDER_URL,
     env: "development",
     forActiveListener: true,
+    abi: monadEscrowV2Abi,
   },
   {
     chainId: 143,
@@ -55,6 +60,7 @@ export const ECOSYSTEM_DETAILS = [
     wsUrl: Bun.env.MONAD_WS_PROVIDER_URL,
     env: "prod",
     forActiveListener: false,
+    abi: monadEscrowV2Abi,
   },
   {
     chainId: 1,
@@ -66,6 +72,7 @@ export const ECOSYSTEM_DETAILS = [
     wsUrl: Bun.env.ETHEREUM_WS_PROVIDER_URL,
     env: "prod",
     forActiveListener: false,
+    abi: escrowV2Abi,
   },
   {
     chainId: 11155111,
@@ -77,6 +84,7 @@ export const ECOSYSTEM_DETAILS = [
     wsUrl: Bun.env.ETHEREUM_SEPOLIA_WS_PROVIDER_URL,
     env: "development",
     forActiveListener: false,
+    abi: escrowV2Abi,
   },
   {
     chainId: 10,
@@ -88,6 +96,7 @@ export const ECOSYSTEM_DETAILS = [
     wsUrl: Bun.env.OPT_MAINNET_WS_PROVIDER_URL,
     env: "prod",
     forActiveListener: false,
+    abi: escrowV2Abi,
   },
   {
     chainId: 11155420,
@@ -99,6 +108,7 @@ export const ECOSYSTEM_DETAILS = [
     wsUrl: Bun.env.OPT_SEPOLIA_WS_PROVIDER_URL,
     env: "development",
     forActiveListener: false,
+    abi: escrowV2Abi,
   },
   {
     chainId: 42161,
@@ -110,6 +120,7 @@ export const ECOSYSTEM_DETAILS = [
     wsUrl: Bun.env.ARB_MAINNET_WS_PROVIDER_URL,
     env: "prod",
     forActiveListener: false,
+    abi: escrowV2Abi,
   },
   {
     chainId: 421614,
@@ -121,6 +132,7 @@ export const ECOSYSTEM_DETAILS = [
     wsUrl: Bun.env.ARB_SEPOLIA_WS_PROVIDER_URL,
     env: "development",
     forActiveListener: false,
+    abi: escrowV2Abi,
   },
   {
     chainId: 56,
@@ -132,6 +144,7 @@ export const ECOSYSTEM_DETAILS = [
     wsUrl: Bun.env.BNB_MAINNET_WS_PROVIDER_URL,
     env: "prod",
     forActiveListener: false,
+    abi: escrowV2Abi,
   },
   {
     chainId: 97,
@@ -143,5 +156,6 @@ export const ECOSYSTEM_DETAILS = [
     wsUrl: Bun.env.BNB_TESTNET_WS_PROVIDER_URL,
     env: "development",
     forActiveListener: false,
+    abi: escrowV2Abi,
   },
 ];
