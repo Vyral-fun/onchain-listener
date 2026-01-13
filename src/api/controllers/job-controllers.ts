@@ -315,11 +315,13 @@ export async function getJobOnchainLeaderboard(c: Context) {
 
   try {
     const walletCount = sql<number>`
-      COUNT(*) FILTER (WHERE ${yappersDerivedAddressActivity.interacted} = true)
-    `.as("walletCount");
+      COUNT(DISTINCT ${yappersDerivedAddressActivity.address})
+      FILTER (WHERE ${yappersDerivedAddressActivity.interacted} = true)
+    `;
 
     const volume = sql<string>`
       COALESCE(SUM(${yappersDerivedAddressActivity.value}), 0)
+      FILTER (WHERE ${yappersDerivedAddressActivity.interacted} = true)
     `.as("volume");
 
     const leaderboard = await db
