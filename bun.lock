@@ -4,10 +4,7 @@
     "": {
       "name": "onchain-listener",
       "dependencies": {
-        "@bull-board/api": "^6.16.2",
-        "@bull-board/hono": "^6.16.2",
         "@coinbase/onchainkit": "^0.38.19",
-        "@hono/node-server": "^1.19.8",
         "@types/ws": "^8.18.1",
         "alchemy-sdk": "^3.6.3",
         "bullmq": "^5.58.5",
@@ -24,6 +21,9 @@
         "zod": "^3.24.2",
       },
       "devDependencies": {
+        "@bull-board/api": "^6.16.2",
+        "@bull-board/hono": "^6.16.2",
+        "@hono/node-server": "^1.19.8",
         "@types/bun": "latest",
         "dotenv": "^17.2.2",
         "rimraf": "^6.1.2",
