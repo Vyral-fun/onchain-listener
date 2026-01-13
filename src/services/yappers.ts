@@ -76,19 +76,12 @@ export async function recordYapperClusterActivity(
 
   for (const event of contractEvents) {
     const sender = event.sender.toLowerCase();
-    const receiver = event.reciever.toLowerCase();
 
     if (!eventsByAddress.has(sender)) {
       eventsByAddress.set(sender, []);
     }
-    if (!eventsByAddress.has(receiver)) {
-      eventsByAddress.set(receiver, []);
-    }
 
     eventsByAddress.get(sender)?.push(event);
-    if (sender !== receiver) {
-      eventsByAddress.get(receiver)?.push(event);
-    }
   }
 
   const records = filtered.map((addr) => {
@@ -174,11 +167,16 @@ export async function getYapperOnchainReward(
     const yapperContribution = await db
       .select({
         interactionCount: sql<number>`
-          COUNT(*) FILTER (WHERE ${yappersDerivedAddressActivity.interacted} = true)
+          COUNT(DISTINCT ${yappersDerivedAddressActivity.address})
+          FILTER (WHERE ${yappersDerivedAddressActivity.interacted} = true)
         `,
         totalValue: sql<string>`
-          COALESCE(SUM(${yappersDerivedAddressActivity.value}), 0)
-        `,
+        COALESCE(
+          SUM(${yappersDerivedAddressActivity.value})
+          FILTER (WHERE ${yappersDerivedAddressActivity.interacted} = true),
+          0
+        )
+      `,
       })
       .from(yappersDerivedAddressActivity)
       .where(
@@ -187,6 +185,13 @@ export async function getYapperOnchainReward(
           eq(yappersDerivedAddressActivity.yapperid, yap.yapperid)
         )
       );
+
+    console.log(
+      "Yapper Contribution for yapper:",
+      yap.yapperid,
+      yap.jobId,
+      yapperContribution
+    );
 
     if (!yapperContribution || yapperContribution.length === 0) {
       return {

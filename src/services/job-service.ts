@@ -4,7 +4,7 @@ import {
   yappersDerivedAddressActivity,
 } from "@/db/schema/event";
 import { type Yap } from "./yappers";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { leaderboardUpdateQueue, recordYapperClusterQueue } from "./queue";
 import { unsubscribeJobFromContractListener } from "./listener-service";
@@ -94,21 +94,6 @@ export async function recordJobYapsActivity(yaps: Yap[], jobId: string) {
 
 export async function stopJobContractEventListener(jobId: string) {
   await unsubscribeJobFromContractListener(jobId);
-
-  const schedulerId = `leaderboard-${jobId}`;
-  try {
-    await leaderboardUpdateQueue.removeJobScheduler(schedulerId);
-    console.log(`Removed periodic leaderboard scheduler for job ${jobId}`);
-  } catch (err) {
-    console.warn(`Could not remove leaderboard scheduler for ${jobId}`, err);
-  }
-
-  try {
-    await updateJobOnchainLeaderboard(jobId);
-    console.log(`Final leaderboard update done for job ${jobId}`);
-  } catch {}
-
-  console.log(`Stopped contract event listener for job ${jobId}`);
 }
 
 export async function updateJobOnchainLeaderboard(jobId: string) {
@@ -131,7 +116,12 @@ export async function getJobActivityDetails(jobId: string): Promise<{
       value: yappersDerivedAddressActivity.value,
     })
     .from(yappersDerivedAddressActivity)
-    .where(eq(yappersDerivedAddressActivity.jobId, jobId));
+    .where(
+      and(
+        eq(yappersDerivedAddressActivity.jobId, jobId),
+        eq(yappersDerivedAddressActivity.interacted, true)
+      )
+    );
 
   const uniqueAddressesSet = new Set<string>();
   let totalValue = 0;
