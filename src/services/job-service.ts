@@ -94,7 +94,6 @@ export async function recordJobYapsActivity(yaps: Yap[], jobId: string) {
 
 export async function stopJobContractEventListener(jobId: string) {
   await unsubscribeJobFromContractListener(jobId);
-  await updateJobOnchainLeaderboard(jobId);
 }
 
 export async function updateJobOnchainLeaderboard(jobId: string) {
