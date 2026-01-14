@@ -31,10 +31,7 @@ export async function joinOnchainInvite(c: Context) {
       .select()
       .from(onchainJobInvites)
       .where(
-        and(
-          eq(onchainJobInvites.yapperProfileId, yapperProfileId),
-          eq(onchainJobInvites.inviteeWalletAdress, walletAddress.toLowerCase())
-        )
+        eq(onchainJobInvites.inviteeWalletAdress, walletAddress.toLowerCase())
       )
       .limit(1);
 
@@ -46,12 +43,7 @@ export async function joinOnchainInvite(c: Context) {
       const existingUsername = await db
         .select()
         .from(onchainJobInvites)
-        .where(
-          and(
-            eq(onchainJobInvites.yapperProfileId, yapperProfileId),
-            eq(onchainJobInvites.inviteeXName, username)
-          )
-        )
+        .where(eq(onchainJobInvites.inviteeXName, username))
         .limit(1);
 
       if (existingUsername.length > 0) {
