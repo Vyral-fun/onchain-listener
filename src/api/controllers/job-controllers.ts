@@ -4,9 +4,10 @@ import { db } from "@/db";
 import {
   contractEvents,
   jobs,
+  onchainJobInvites,
   yappersDerivedAddressActivity,
 } from "@/db/schema/event";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, inArray } from "drizzle-orm";
 import { NULL_ADDRESS } from "@/utils/constants";
 import { JobOnchainRewardBodySchema } from "@/zod/yapper";
 import { getJobActivityDetails, type Job } from "@/services/job-service";
@@ -169,6 +170,31 @@ export async function getJobClusters(c: Context) {
       .from(yappersDerivedAddressActivity)
       .where(eq(yappersDerivedAddressActivity.jobId, jobId));
 
+    const yapperIds = Array.from(
+      new Set(activities.map((act) => act.yapperid))
+    );
+
+    const affiliateAddresses =
+      yapperIds.length > 0
+        ? await db
+            .select({
+              yapperProfileId: onchainJobInvites.yapperProfileId,
+              inviteeWalletAdress: onchainJobInvites.inviteeWalletAdress,
+            })
+            .from(onchainJobInvites)
+            .where(inArray(onchainJobInvites.yapperProfileId, yapperIds))
+        : [];
+
+    const affiliateMap = new Map<string, Set<string>>();
+    for (const invite of affiliateAddresses) {
+      if (!affiliateMap.has(invite.yapperProfileId)) {
+        affiliateMap.set(invite.yapperProfileId, new Set());
+      }
+      affiliateMap
+        .get(invite.yapperProfileId)!
+        .add(invite.inviteeWalletAdress.toLowerCase());
+    }
+
     const jobAddresses = await db
       .select({
         senders: contractEvents.sender,
@@ -248,11 +274,28 @@ export async function getJobClusters(c: Context) {
       return own ? [own, ...others] : acts;
     });
 
+    const isAffiliateAddress = (
+      yapperProfileId: string,
+      address: string,
+      yapperOwnAddress: string
+    ): boolean => {
+      if (address.toLowerCase() === yapperOwnAddress.toLowerCase()) {
+        return false;
+      }
+      const affiliates = affiliateMap.get(yapperProfileId);
+      return affiliates ? affiliates.has(address.toLowerCase()) : false;
+    };
+
     const serializedClusters = clusters.map((group) =>
       group.map((item) => ({
         ...item,
         value:
           typeof item.value === "bigint" ? item.value.toString() : item.value,
+        isAffiliateAddress: isAffiliateAddress(
+          item.yapperid,
+          item.address,
+          item.yapperAddress
+        ),
       }))
     );
 
