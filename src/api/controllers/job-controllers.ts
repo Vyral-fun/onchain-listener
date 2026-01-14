@@ -320,9 +320,12 @@ export async function getJobOnchainLeaderboard(c: Context) {
     `;
 
     const volume = sql<string>`
-      COALESCE(SUM(${yappersDerivedAddressActivity.value}), 0)
-      FILTER (WHERE ${yappersDerivedAddressActivity.interacted} = true)
-    `.as("volume");
+      COALESCE(
+        SUM(${yappersDerivedAddressActivity.value})
+        FILTER (WHERE ${yappersDerivedAddressActivity.interacted} = true),
+        0
+      )
+    `;
 
     const leaderboard = await db
       .select({
