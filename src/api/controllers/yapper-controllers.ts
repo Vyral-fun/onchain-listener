@@ -27,33 +27,36 @@ export async function joinOnchainInvite(c: Context) {
       );
     }
 
-    const inviteeConditions = [
-      eq(onchainJobInvites.inviteeWalletAdress, walletAddress),
-    ];
-
-    if (username && username.length > 0) {
-      inviteeConditions.push(eq(onchainJobInvites.inviteeXName, username));
-    }
-
-    if (inviteeConditions.length === 0) {
-      return c.json(
-        { error: "Either walletAddress or username must be provided" },
-        400
-      );
-    }
-
     const existingInvite = await db
       .select()
       .from(onchainJobInvites)
       .where(
         and(
           eq(onchainJobInvites.yapperProfileId, yapperProfileId),
-          or(...inviteeConditions)
+          eq(onchainJobInvites.inviteeWalletAdress, walletAddress.toLowerCase())
         )
       )
       .limit(1);
+
     if (existingInvite.length > 0) {
       return c.json({ error: "User has already been referred" }, 400);
+    }
+
+    if (username && username.length > 0) {
+      const existingUsername = await db
+        .select()
+        .from(onchainJobInvites)
+        .where(
+          and(
+            eq(onchainJobInvites.yapperProfileId, yapperProfileId),
+            eq(onchainJobInvites.inviteeXName, username)
+          )
+        )
+        .limit(1);
+
+      if (existingUsername.length > 0) {
+        return c.json({ error: "Username has already been referred" }, 400);
+      }
     }
 
     const [invite] = await db
@@ -61,7 +64,7 @@ export async function joinOnchainInvite(c: Context) {
       .values({
         yapperProfileId,
         inviteeXName: username,
-        inviteeWalletAdress: walletAddress,
+        inviteeWalletAdress: walletAddress.toLowerCase(),
       })
       .returning();
 

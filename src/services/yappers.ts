@@ -161,81 +161,68 @@ export async function getYapperOnchainInvitesData(yapperId: string) {
 export async function getYapperOnchainReward(
   yap: Yap,
   job: Job
-): Promise<{ yapperAddress: string; yapperId: string; reward: bigint }> {
+): Promise<{ yapperAddress: string; yapperId: string; reward: number }> {
   try {
     const hierarchy = job.onchainHeirarchy;
+
     const yapperContribution = await db
       .select({
-        interactionCount: sql<number>`
-          COUNT(DISTINCT ${yappersDerivedAddressActivity.address})
-          FILTER (WHERE ${yappersDerivedAddressActivity.interacted} = true)
-        `,
-        totalValue: sql<string>`
-        COALESCE(
-          SUM(${yappersDerivedAddressActivity.value})
-          FILTER (WHERE ${yappersDerivedAddressActivity.interacted} = true),
-          0
-        )
-      `,
+        interactionCount: sql<number>`COUNT(*)`,
+        totalValue: sql<string>`COALESCE(SUM(${yappersDerivedAddressActivity.value}), 0)`,
       })
       .from(yappersDerivedAddressActivity)
       .where(
         and(
           eq(yappersDerivedAddressActivity.jobId, job.id),
-          eq(yappersDerivedAddressActivity.yapperid, yap.yapperid)
+          eq(yappersDerivedAddressActivity.yapperid, yap.yapperid),
+          eq(yappersDerivedAddressActivity.interacted, true)
         )
       );
 
-    console.log(
-      "Yapper Contribution for yapper:",
-      yap.yapperid,
-      yap.jobId,
-      yapperContribution
-    );
-
-    if (!yapperContribution || yapperContribution.length === 0) {
+    if (
+      !yapperContribution ||
+      yapperContribution.length === 0 ||
+      !yapperContribution[0]
+    ) {
       return {
         yapperAddress: yap.walletAddress,
         yapperId: yap.yapperid,
-        reward: 0n,
+        reward: 0,
       };
     }
 
     const contribution = yapperContribution[0];
-
-    let rewardPercentage: number;
+    let rewardAmount: number;
 
     if (hierarchy === "volume") {
-      const yapperValue = BigInt(contribution!.totalValue || 0);
-      const totalValue = BigInt(job.value || 0);
+      const yapperValue = BigInt(contribution.totalValue || 0);
+      const totalValue = job.value;
 
       if (totalValue === 0n) {
         return {
           yapperAddress: yap.walletAddress,
           yapperId: yap.yapperid,
-          reward: 0n,
+          reward: 0,
         };
       }
 
-      rewardPercentage = Number((yapperValue * 10000n) / totalValue) / 100;
+      const proportion = Number(yapperValue) / Number(totalValue);
+      rewardAmount = proportion * job.onchainReward;
     } else {
-      const yapperInteractions = contribution!.interactionCount || 0;
-      const totalInteractions = job.addresses.length || 0;
+      const yapperInteractions = contribution.interactionCount || 0;
+      const totalInteractions = job.totalInteractions || 0;
 
       if (totalInteractions === 0) {
         return {
           yapperAddress: yap.walletAddress,
           yapperId: yap.yapperid,
-          reward: 0n,
+          reward: 0,
         };
       }
 
-      rewardPercentage = (yapperInteractions / totalInteractions) * 100;
+      const proportion = yapperInteractions / totalInteractions;
+      rewardAmount = proportion * job.onchainReward;
     }
-
-    const rewardAmount = BigInt(
-      Math.floor((rewardPercentage / 100) * job.onchainReward)
-    );
 
     return {
       yapperAddress: yap.walletAddress,
@@ -247,7 +234,7 @@ export async function getYapperOnchainReward(
     return {
       yapperAddress: yap.walletAddress,
       yapperId: yap.yapperid,
-      reward: 0n,
+      reward: 0,
     };
   }
 }
