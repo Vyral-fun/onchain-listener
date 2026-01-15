@@ -4,7 +4,7 @@ import {
   yappersDerivedAddressActivity,
 } from "@/db/schema/event";
 import { type Yap } from "./yappers";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { leaderboardUpdateQueue, recordYapperClusterQueue } from "./queue";
 import { unsubscribeJobFromContractListener } from "./listener-service";
@@ -27,7 +27,8 @@ export interface Job {
   onchainHeirarchy: "volume" | "walletCount";
   onchainReward: number;
   addresses: string[];
-  value: number;
+  value: bigint;
+  totalInteractions: number;
 }
 
 export async function recordJobYapsActivity(yaps: Yap[], jobId: string) {
@@ -107,13 +108,16 @@ export async function updateJobOnchainLeaderboard(jobId: string) {
 
 export async function getJobActivityDetails(jobId: string): Promise<{
   addresses: string[];
-  value: number;
+  value: bigint;
+  totalInteractions: number;
 }> {
   const result = await db
     .select({
-      yapperAddress: yappersDerivedAddressActivity.yapperAddress,
-      address: yappersDerivedAddressActivity.address,
-      value: yappersDerivedAddressActivity.value,
+      totalInteractions: sql<number>`COUNT(*)`,
+      totalValue: sql<string>`COALESCE(SUM(${yappersDerivedAddressActivity.value}), 0)`,
+      addresses: sql<
+        string[]
+      >`ARRAY_AGG(DISTINCT ${yappersDerivedAddressActivity.address})`,
     })
     .from(yappersDerivedAddressActivity)
     .where(
@@ -123,21 +127,22 @@ export async function getJobActivityDetails(jobId: string): Promise<{
       )
     );
 
-  const uniqueAddressesSet = new Set<string>();
-  let totalValue = 0;
+  const data = result[0];
 
-  for (const row of result) {
-    if (row.address && row.address !== NULL_ADDRESS) {
-      uniqueAddressesSet.add(row.address);
-    }
-    if (row.yapperAddress && row.yapperAddress !== NULL_ADDRESS) {
-      uniqueAddressesSet.add(row.yapperAddress);
-    }
-    totalValue += Number(row.value ?? 0);
-  }
+  const validAddresses = (data?.addresses || []).filter(
+    (addr) => addr && addr !== NULL_ADDRESS
+  );
+
+  console.log("Job Activity Details:", {
+    jobId,
+    uniqueAddresses: validAddresses.length,
+    totalInteractions: data?.totalInteractions || 0,
+    totalValue: data?.totalValue || "0",
+  });
 
   return {
-    addresses: Array.from(uniqueAddressesSet),
-    value: totalValue,
+    addresses: validAddresses,
+    value: BigInt(data?.totalValue || 0),
+    totalInteractions: data?.totalInteractions || 0,
   };
 }

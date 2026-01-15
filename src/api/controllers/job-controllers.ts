@@ -425,7 +425,7 @@ export async function getJobOnchainRewards(c: Context) {
   try {
     const jobActivity = await getJobActivityDetails(jobId);
 
-    if (jobActivity.addresses.length === 0 && jobActivity.value === 0) {
+    if (jobActivity.addresses.length === 0 && jobActivity.value === 0n) {
       return c.json({
         jobId,
         hierarchy: onchainHeirarchy,
@@ -433,7 +433,7 @@ export async function getJobOnchainRewards(c: Context) {
         rewards: yaps.map((yap) => ({
           yapperid: yap.yapperid,
           yapperAddress: yap.walletAddress,
-          reward: 0n,
+          reward: "0.00",
         })),
       });
     }
@@ -444,11 +444,19 @@ export async function getJobOnchainRewards(c: Context) {
       onchainReward,
       addresses: jobActivity.addresses,
       value: jobActivity.value,
+      totalInteractions: jobActivity.totalInteractions,
     };
 
     const rewards = await Promise.all(
       yaps.map((yap) => getYapperOnchainReward(yap, job))
     );
+
+    const totalDistributed = rewards.reduce((sum, r) => sum + r.reward, 0);
+
+    console.log("Reward distribution:", {
+      totalDistributed: totalDistributed.toFixed(2),
+      expectedTotal: onchainReward,
+    });
 
     return c.json({
       jobId,
@@ -457,7 +465,7 @@ export async function getJobOnchainRewards(c: Context) {
       rewards: rewards.map((r) => ({
         yapperid: r.yapperId,
         yapperAddress: r.yapperAddress,
-        reward: r.reward.toString(),
+        reward: r.reward.toFixed(2),
       })),
     });
   } catch (error) {
