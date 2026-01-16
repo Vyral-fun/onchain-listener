@@ -198,7 +198,6 @@ export async function getJobClusters(c: Context) {
     const jobAddresses = await db
       .select({
         senders: contractEvents.sender,
-        receivers: contractEvents.receiver,
         contractAddress: contractEvents.contractAddress,
       })
       .from(contractEvents)
@@ -206,11 +205,7 @@ export async function getJobClusters(c: Context) {
 
     const uniqueJobAddresses = Array.from(
       new Set(
-        jobAddresses.flatMap((addr) => [
-          addr.senders,
-          addr.receivers,
-          addr.contractAddress,
-        ])
+        jobAddresses.flatMap((addr) => [addr.senders, addr.contractAddress])
       )
     ).filter(
       (addr) =>
