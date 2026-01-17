@@ -79,6 +79,14 @@ export const jobSubscriptions = pgTable("job_subscriptions", {
   isActive: boolean("is_active").default(true).notNull(),
 });
 
+export const listenerState = pgTable("listener_state", {
+  chainId: integer("chain_id").primaryKey(),
+  lastProcessedBlock: bigint("last_processed_block", {
+    mode: "bigint",
+  }).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const yappersDerivedAddressActivity = pgTable(
   "yappers_derived_address_activity",
   {

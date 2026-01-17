@@ -453,11 +453,6 @@ export async function getJobOnchainRewards(c: Context) {
 
     const totalDistributed = rewards.reduce((sum, r) => sum + r.reward, 0);
 
-    console.log("Reward distribution:", {
-      totalDistributed: totalDistributed.toFixed(2),
-      expectedTotal: onchainReward,
-    });
-
     return c.json({
       jobId,
       hierarchy: onchainHeirarchy,

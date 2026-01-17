@@ -60,9 +60,6 @@ export async function createNetworkListener(
     httpProvider,
     consecutiveErrors: 0,
     async stop() {
-      console.log(
-        `[${chainId}] Stopping listener for contract: ${contractAddress}`
-      );
       listener.isActive = false;
 
       if (listener.pollTimer) {
@@ -71,15 +68,10 @@ export async function createNetworkListener(
       }
 
       delete runtimeNetworkListeners[chainId];
-      console.log(`[${chainId}] Listener stopped successfully`);
     },
   };
 
   startPolling(listener);
-
-  console.log(
-    `[${chainId}] Polling listener started for ${contractAddress} from block ${currentBlock}`
-  );
 
   return listener;
 }
@@ -108,7 +100,6 @@ async function startPolling(listener: NetworkContractListener) {
       }
 
       if (toBlock >= listener.lastLoggedBlock + LOG_EVERY_N_BLOCKS) {
-        console.log(`[${chainId}] Synced up to block ${toBlock}`);
         listener.lastLoggedBlock = toBlock;
       }
 
@@ -153,15 +144,7 @@ async function startPolling(listener: NetworkContractListener) {
             const adjustedBudget = Number(ethers.formatUnits(budget, decimals));
             const adjustedFee = Number(ethers.formatUnits(fee, decimals));
 
-            console.log(`[${chainId}] YapRequestCreated event detected:`);
-            console.log(`  - Block: ${log.blockNumber}`);
-            console.log(`  - JobId: ${jobId}`);
-            console.log(`  - YapId: ${yapId}`);
-            console.log(`  - Budget: ${adjustedBudget}`);
-            console.log(`  - Fee: ${adjustedFee}`);
-            console.log(`  - TxHash: ${log.transactionHash}`);
-            console.log(`  - Creator: ${creator}`);
-            console.log(`  - Asset: ${asset}`);
+            console.log(`[${chainId}] YapRequestCreated event detected for job: ${jobId}`);
 
             try {
               await handleYapRequestCreated(
@@ -241,14 +224,10 @@ export async function updateNetworkContractListener(
   const listener = runtimeNetworkListeners[chainId];
 
   if (listener?.contractAddress === contractAddress) {
-    console.log(
-      `[${chainId}] Listener already exists for contract ${contractAddress}`
-    );
     return listener;
   }
 
   if (listener) {
-    console.log(`[${chainId}] Updating listener to new contract address`);
     await listener.stop();
   }
 
@@ -265,12 +244,10 @@ export async function updateNetworksListeners() {
     try {
       const { escrowContract } = getEcosystemDetails(chainId);
       await updateNetworkContractListener(chainId, escrowContract);
-      console.log(`[${chainId}] Polling listener active on chain ${chainId}`);
     } catch (err) {
       console.error(`[${chainId}] Failed to start listener:`, err);
     }
   }
 
   startHealthCheck();
-  console.log("Health check monitoring started");
 }

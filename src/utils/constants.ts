@@ -22,6 +22,7 @@ export const ECOSYSTEM_DETAILS = [
     apiKey: Bun.env.ALCHEMY_BASE_SEPOLIA_KEY,
     rpcUrl: Bun.env.BASE_SEPOLIA_PROVIDER_URL,
     wsUrl: Bun.env.BASE_SEPOLIA_WS_PROVIDER_URL,
+    networkPollInterval: 2000, // 2 seconds
     env: "development",
     forActiveListener: true,
     abi: escrowV2Abi,
@@ -34,6 +35,7 @@ export const ECOSYSTEM_DETAILS = [
     apiKey: Bun.env.ALCHEMY_BASE_MAINNET_KEY,
     rpcUrl: Bun.env.BASE_MAINNET_PROVIDER_URL,
     wsUrl: Bun.env.BASE_MAINNET_WS_PROVIDER_URL,
+    networkPollInterval: 2000, // 2 seconds
     env: "prod",
     forActiveListener: true,
     abi: escrowV2Abi,
@@ -46,6 +48,7 @@ export const ECOSYSTEM_DETAILS = [
     apiKey: Bun.env.ALCHEMY_MONAD_TESTNET_KEY,
     rpcUrl: Bun.env.MONAD_PROVIDER_URL,
     wsUrl: Bun.env.MONAD_WS_PROVIDER_URL,
+    networkPollInterval: 1000, // 1 second
     env: "development",
     forActiveListener: true,
     abi: monadEscrowV2Abi,
@@ -58,6 +61,7 @@ export const ECOSYSTEM_DETAILS = [
     apiKey: Bun.env.ALCHEMY_MONAD_TESTNET_KEY,
     rpcUrl: Bun.env.MONAD_PROVIDER_URL,
     wsUrl: Bun.env.MONAD_WS_PROVIDER_URL,
+    networkPollInterval: 1000, // 1 second
     env: "prod",
     forActiveListener: false,
     abi: monadEscrowV2Abi,
@@ -71,6 +75,7 @@ export const ECOSYSTEM_DETAILS = [
     rpcUrl: Bun.env.ETHEREUM_PROVIDER_URL,
     wsUrl: Bun.env.ETHEREUM_WS_PROVIDER_URL,
     env: "prod",
+    networkPollInterval: 12000, // 12 seconds
     forActiveListener: false,
     abi: escrowV2Abi,
   },
@@ -82,6 +87,7 @@ export const ECOSYSTEM_DETAILS = [
     apiKey: Bun.env.ALCHEMY_API_KEY,
     rpcUrl: Bun.env.ETHEREUM_SEPOLIA_PROVIDER_URL,
     wsUrl: Bun.env.ETHEREUM_SEPOLIA_WS_PROVIDER_URL,
+    networkPollInterval: 12000, // 12 seconds
     env: "development",
     forActiveListener: false,
     abi: escrowV2Abi,
@@ -94,6 +100,7 @@ export const ECOSYSTEM_DETAILS = [
     apiKey: Bun.env.ALCHEMY_API_KEY,
     rpcUrl: Bun.env.OPT_MAINNET_PROVIDER_URL,
     wsUrl: Bun.env.OPT_MAINNET_WS_PROVIDER_URL,
+    networkPollInterval: 2000, // 2 seconds
     env: "prod",
     forActiveListener: false,
     abi: escrowV2Abi,
@@ -106,6 +113,7 @@ export const ECOSYSTEM_DETAILS = [
     apiKey: Bun.env.ALCHEMY_API_KEY,
     rpcUrl: Bun.env.OPT_SEPOLIA_PROVIDER_URL,
     wsUrl: Bun.env.OPT_SEPOLIA_WS_PROVIDER_URL,
+    networkPollInterval: 2000, // 2 seconds
     env: "development",
     forActiveListener: false,
     abi: escrowV2Abi,
@@ -118,6 +126,7 @@ export const ECOSYSTEM_DETAILS = [
     apiKey: Bun.env.ALCHEMY_API_KEY,
     rpcUrl: Bun.env.ARB_MAINNET_PROVIDER_URL,
     wsUrl: Bun.env.ARB_MAINNET_WS_PROVIDER_URL,
+    networkPollInterval: 250, // 250 ms (very fast blocks)
     env: "prod",
     forActiveListener: false,
     abi: escrowV2Abi,
@@ -130,6 +139,7 @@ export const ECOSYSTEM_DETAILS = [
     apiKey: Bun.env.ALCHEMY_API_KEY,
     rpcUrl: Bun.env.ARB_SEPOLIA_PROVIDER_URL,
     wsUrl: Bun.env.ARB_SEPOLIA_WS_PROVIDER_URL,
+    networkPollInterval: 500, // 500 ms
     env: "development",
     forActiveListener: false,
     abi: escrowV2Abi,
@@ -142,6 +152,7 @@ export const ECOSYSTEM_DETAILS = [
     apiKey: Bun.env.ALCHEMY_API_KEY,
     rpcUrl: Bun.env.BNB_MAINNET_PROVIDER_URL,
     wsUrl: Bun.env.BNB_MAINNET_WS_PROVIDER_URL,
+    networkPollInterval: 3000, // 3 seconds
     env: "prod",
     forActiveListener: false,
     abi: escrowV2Abi,
@@ -154,6 +165,7 @@ export const ECOSYSTEM_DETAILS = [
     apiKey: Bun.env.ALCHEMY_API_KEY,
     rpcUrl: Bun.env.BNB_TESTNET_PROVIDER_URL,
     wsUrl: Bun.env.BNB_TESTNET_WS_PROVIDER_URL,
+    networkPollInterval: 3000, // 3 seconds
     env: "development",
     forActiveListener: false,
     abi: escrowV2Abi,
@@ -166,6 +178,7 @@ export const ECOSYSTEM_DETAILS = [
     apiKey: Bun.env.ALCHEMY_API_KEY,
     rpcUrl: Bun.env.POLYGON_AMOY_PROVIDER_URL,
     wsUrl: Bun.env.POLYGON_AMOY_WS_PROVIDER_URL,
+    networkPollInterval: 2000, // 2 seconds
     env: "development",
     forActiveListener: false,
     abi: escrowV2Abi,
@@ -178,6 +191,7 @@ export const ECOSYSTEM_DETAILS = [
     apiKey: Bun.env.ALCHEMY_API_KEY,
     rpcUrl: Bun.env.POLYGON_MAINNET_PROVIDER_URL,
     wsUrl: Bun.env.POLYGON_MAINNET_WS_PROVIDER_URL,
+    networkPollInterval: 2000, // 2 seconds
     env: "development",
     forActiveListener: false,
     abi: escrowV2Abi,
