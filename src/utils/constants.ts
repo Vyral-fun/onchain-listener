@@ -5,7 +5,9 @@ import { abi as monadEscrowV2Abi } from "../monadEscrowV2.json";
 export const BATCH_SIZE = 500;
 
 const isProd = Bun.env.NODE_ENV === "production";
-export const UPDATE_INTERVAL_MS = isProd ? 24 * 60 * 60 * 1000 : 1 * 60 * 60 * 1000;
+export const UPDATE_INTERVAL_MS = isProd
+  ? 24 * 60 * 60 * 1000
+  : 1 * 60 * 60 * 1000;
 export const LOG_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 export const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
 export const YAP_API_URL = Bun.env.YAP_API_URL;
@@ -154,6 +156,30 @@ export const ECOSYSTEM_DETAILS = [
     apiKey: Bun.env.ALCHEMY_API_KEY,
     rpcUrl: Bun.env.BNB_TESTNET_PROVIDER_URL,
     wsUrl: Bun.env.BNB_TESTNET_WS_PROVIDER_URL,
+    env: "development",
+    forActiveListener: false,
+    abi: escrowV2Abi,
+  },
+  {
+    chainId: 80002,
+    ecosystem: "polygon_amoy",
+    escrowContract: NULL_ADDRESS,
+    network: Network.POLYGONZKEVM_CARDONA,
+    apiKey: Bun.env.ALCHEMY_API_KEY,
+    rpcUrl: Bun.env.POLYGON_AMOY_PROVIDER_URL,
+    wsUrl: Bun.env.POLYGON_AMOY_WS_PROVIDER_URL,
+    env: "development",
+    forActiveListener: false,
+    abi: escrowV2Abi,
+  },
+  {
+    chainId: 137,
+    ecosystem: "polygon_mainnet",
+    escrowContract: NULL_ADDRESS,
+    network: Network.POLYGONZKEVM_CARDONA,
+    apiKey: Bun.env.ALCHEMY_API_KEY,
+    rpcUrl: Bun.env.POLYGON_MAINNET_PROVIDER_URL,
+    wsUrl: Bun.env.POLYGON_MAINNET_WS_PROVIDER_URL,
     env: "development",
     forActiveListener: false,
     abi: escrowV2Abi,

@@ -111,6 +111,18 @@ export const envSchema = z.object({
   BNB_TESTNET_WS_PROVIDER_URL: z.string({
     required_error: "BNB_TESTNET_WS_PROVIDER_URL is required",
   }),
+  POLYGON_MAINNET_PROVIDER_URL: z.string({
+    required_error: "POLYGON_MAINNET_PROVIDER_URL is required",
+  }),
+  POLYGON_MAINNET_WS_PROVIDER_URL: z.string({
+    required_error: "POLYGON_MAINNET_WS_PROVIDER_URL is required",
+  }),
+  POLYGON_AMOY_PROVIDER_URL: z.string({
+    required_error: "POLYGON_AMOY_PROVIDER_URL is required",
+  }),
+  POLYGON_AMOY_WS_PROVIDER_URL: z.string({
+    required_error: "POLYGON_AMOY_WS_PROVIDER_URL is required",
+  }),
 
   TWITTER_API_KEY: z.string({
     required_error: "TWITTER_API_KEY is required",
