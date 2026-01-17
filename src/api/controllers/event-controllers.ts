@@ -48,13 +48,13 @@ export async function startContractEventListener(c: Context) {
     let stopDelayMs = endDate.getTime() - Date.now();
     let endDateAdjusted = endDate;
 
-    if (Bun.env.NODE_ENV !== "production") {
-      stopDelayMs = 15 * 60 * 1000; // 15 minutes for non-production
-    }
+    // if (Bun.env.NODE_ENV !== "production") {
+    //   stopDelayMs = 15 * 60 * 1000; // 15 minutes for non-production
+    // }
 
-    if (Bun.env.NODE_ENV !== "production") {
-      endDateAdjusted = new Date(Date.now() + stopDelayMs);
-    }
+    // if (Bun.env.NODE_ENV !== "production") {
+    //   endDateAdjusted = new Date(Date.now() + stopDelayMs);
+    // }
 
     await stopJobQueue.add(
       "stopJob",
