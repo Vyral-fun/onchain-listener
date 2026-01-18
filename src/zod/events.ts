@@ -4,7 +4,7 @@ export const subscribeListenerSchema = z.object({
   contractAddress: z.string().length(42),
   abi: z.any(),
   chainId: z.number(),
-  eventsToListenFor: z.array(z.string()),
+  eventToListenFor: z.array(z.string()),
   endDate: z
     .preprocess(
       (val) => (typeof val === "string" ? new Date(val) : val),

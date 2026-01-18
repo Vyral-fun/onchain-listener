@@ -28,7 +28,7 @@ export async function startContractEventListener(c: Context) {
     return c.json({ error: validatedBody.error }, 400);
   }
 
-  const { contractAddress, abi, chainId, eventsToListenFor, endDate } =
+  const { contractAddress, abi, chainId, eventToListenFor, endDate } =
     validatedBody.data;
 
   try {
@@ -37,7 +37,7 @@ export async function startContractEventListener(c: Context) {
       contractAddress,
       abi,
       chainId,
-      eventsToListenFor
+      eventToListenFor
     );
 
     let stopDelayMs = endDate.getTime() - Date.now();
