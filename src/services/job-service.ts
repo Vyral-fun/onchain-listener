@@ -71,9 +71,6 @@ export async function recordJobYapsActivity(yaps: Yap[], jobId: string) {
     transactionHash: ev.transactionHash ?? "",
   }));
 
-  console.log(
-    `Fetched ${jobEvents.length} contract events for job ${jobId} to record yap activities`
-  );
   for (const yap of yaps) {
     await recordYapperClusterQueue.add(
       "recordYapperCluster",
@@ -100,10 +97,6 @@ export async function stopJobContractEventListener(jobId: string) {
 export async function updateJobOnchainLeaderboard(jobId: string) {
   const yaps = await getJobYaps(jobId);
   await recordJobYapsActivity(yaps, jobId);
-
-  console.log(
-    `Updated on-chain leaderboard for job ${jobId} after recording yap activities`
-  );
 }
 
 export async function getJobActivityDetails(jobId: string): Promise<{
@@ -132,13 +125,6 @@ export async function getJobActivityDetails(jobId: string): Promise<{
   const validAddresses = (data?.addresses || []).filter(
     (addr) => addr && addr !== NULL_ADDRESS
   );
-
-  console.log("Job Activity Details:", {
-    jobId,
-    uniqueAddresses: validAddresses.length,
-    totalInteractions: data?.totalInteractions || 0,
-    totalValue: data?.totalValue || "0",
-  });
 
   return {
     addresses: validAddresses,

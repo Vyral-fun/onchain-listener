@@ -15,6 +15,10 @@ import {
   runtimeNetworkListeners,
   updateNetworksListeners,
 } from "./services/campaign-service";
+import {
+  initializeListenersFromDatabase,
+  stopAllListeners,
+} from "./services/listener-service";
 //import {
 //  leaderboardUpdateQueue,
 //  recordYapperClusterQueue,
@@ -73,12 +77,15 @@ app.get("/health", (c: Context) => {
 
 app.route("/api/v1/onchain-listener", ApiRoutes);
 updateNetworksListeners();
+initializeListenersFromDatabase();
 
 process.on("SIGINT", async () => {
   console.log("Shutting down gracefully...");
   for (const listener of Object.values(runtimeNetworkListeners)) {
     await listener.stop();
   }
+
+  stopAllListeners();
   process.exit(0);
 });
 
@@ -87,6 +94,7 @@ process.on("SIGTERM", async () => {
   for (const listener of Object.values(runtimeNetworkListeners)) {
     await listener.stop();
   }
+  stopAllListeners();
   process.exit(0);
 });
 

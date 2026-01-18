@@ -55,11 +55,6 @@ export async function getOnchainAddressesInteractedWith(
       ...new Set([...outwardAddresses, ...inwardAddresses]),
     ];
 
-    console.log(
-      `${allAddresses.length} total unique interacted addresses:`,
-      allAddresses
-    );
-
     return { outwardTransferData, inwardTransferData, allAddresses };
   } catch (error) {
     console.error("Error fetching asset transfers:", error);
@@ -119,10 +114,8 @@ export function hasEvent(
   try {
     const event = contract.interface.getEvent(eventName);
     if (!event) {
-      console.log(`Event ${eventName} not found in contract ABI.`);
       return false;
     }
-    console.log(`Event ${eventName} found in contract ABI:`, event);
     return !!event;
   } catch (err) {
     console.error("Event not found:", err);

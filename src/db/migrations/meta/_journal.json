@@ -22,6 +22,20 @@
       "when": 1767714571155,
       "tag": "0002_dear_bug",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1768683881876,
+      "tag": "0003_pink_madame_masque",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1768684286843,
+      "tag": "0004_solid_cassandra_nova",
+      "breakpoints": true
     }
   ]
 }

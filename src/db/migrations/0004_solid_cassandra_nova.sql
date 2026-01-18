@@ -1,0 +1,1 @@
+ALTER TABLE "listener_state" ADD PRIMARY KEY ("chain_id");
