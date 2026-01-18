@@ -4,4 +4,4 @@ CREATE TABLE "listener_state" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE "yappers_derived_address_activity" DROP COLUMN "last_updated";
+ALTER TABLE "yappers_derived_address_activity" DROP COLUMN IF EXISTS "last_updated";
