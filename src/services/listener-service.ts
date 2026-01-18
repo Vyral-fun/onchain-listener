@@ -169,7 +169,41 @@ async function createNetworkListener(
       retryDelay: 1500, // 1.5 seconds
     }),
   });
-  let lastBlockProcessed = await getLastProcessedBlock(chainId);
+
+  const activeJobs = await db
+    .select({ id: jobs.id })
+    .from(jobs)
+    .where(and(eq(jobs.chainId, chainId), eq(jobs.isActive, true)))
+    .limit(1);
+
+  let lastBlockProcessed: number;
+
+  if (activeJobs.length === 0) {
+    const currentBlock = await httpProvider.getBlockNumber();
+    lastBlockProcessed = Number(currentBlock);
+    console.log(
+      `[Chain ${chainId}] No active jobs, starting from current block: ${lastBlockProcessed}`
+    );
+
+    await db.delete(listenerState).where(eq(listenerState.chainId, chainId));
+    await saveLastProcessedBlock(chainId, lastBlockProcessed);
+  } else {
+    const savedBlock = await getLastProcessedBlock(chainId);
+
+    if (savedBlock === null) {
+      const currentBlock = await httpProvider.getBlockNumber();
+      lastBlockProcessed = Number(currentBlock);
+      console.log(
+        `[Chain ${chainId}] No saved state, starting from current block: ${lastBlockProcessed}`
+      );
+      await saveLastProcessedBlock(chainId, lastBlockProcessed);
+    } else {
+      lastBlockProcessed = savedBlock;
+      console.log(
+        `[Chain ${chainId}] Resuming from saved block: ${lastBlockProcessed}`
+      );
+    }
+  }
 
   if (lastBlockProcessed === null) {
     let blockNumber = await httpProvider.getBlockNumber();
@@ -325,11 +359,15 @@ function startNetworkPolling(listener: NetworkListener) {
           lastSuccessfullyProcessed = bn;
           continue;
         }
+
         for (const log of blockLogs) {
           const normalizedAddress = log.address.toLowerCase();
           const contractSub = listener.contracts.get(normalizedAddress);
 
           if (!contractSub) {
+            console.warn(
+              `[${chainId}] Log for untracked contract ${normalizedAddress} at block ${log.blockNumber}`
+            );
             continue;
           }
 
@@ -351,6 +389,7 @@ function startNetworkPolling(listener: NetworkListener) {
             !contractSub.eventsBeingListened.has("*") &&
             !contractSub.eventsBeingListened.has(eventName)
           ) {
+            lastSuccessfullyProcessed = bn;
             continue;
           }
 
@@ -363,6 +402,7 @@ function startNetworkPolling(listener: NetworkListener) {
           }
 
           const normalizedEvent = await normalizeEvent(parsedLog, log, tx);
+          logEvent(normalizedEvent);
           await routeEventToJobs(normalizedEvent, chainId);
 
           lastSuccessfullyProcessed = bn;
@@ -371,14 +411,14 @@ function startNetworkPolling(listener: NetworkListener) {
         const msg = err.shortMessage || err.message || String(err);
 
         if (msg.includes("could not be found")) {
-          console.debug(
+          console.log(
             `[${chainId}] Block ${bn} not found yet (retry next poll)`
           );
         } else if (msg.includes("Too Many Requests") || err.code === -32005) {
           console.warn(
             `[${chainId}] Rate limited on block ${bn} → backoff 15s`
           );
-          await new Promise((r) => setTimeout(r, 15000));
+          await new Promise((r) => setTimeout(r, 5000));
           break;
         } else {
           console.warn(`[${chainId}] Error processing block ${bn}: ${msg}`);
