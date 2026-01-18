@@ -8,8 +8,16 @@ import {
 } from "@/db/schema/event";
 import { getEcosystemDetails } from "@/utils/ecosystem";
 import { and, desc, eq, sql } from "drizzle-orm";
-import { NULL_ADDRESS } from "@/utils/constants";
-import WebSocket from "ws";
+import { LOG_EVERY_N_BLOCKS, NULL_ADDRESS } from "@/utils/constants";
+import {
+  BlockNotFoundError,
+  createPublicClient,
+  http,
+  numberToHex,
+  type PublicClient,
+  type Transaction,
+} from "viem";
+import { tr } from "zod/v4/locales";
 
 export interface JobEventSubscription {
   jobId: string;
@@ -27,9 +35,10 @@ export interface ContractSubscription {
 
 export interface NetworkListener {
   chainId: number;
-  httpProvider: ethers.JsonRpcProvider;
+  client: any;
   contracts: Map<string, ContractSubscription>;
   lastProcessedBlock: number;
+  lastLoggedBlock: number;
   pollTimer: Timer | null;
   isActive: boolean;
   stop: () => Promise<void>;
@@ -49,7 +58,7 @@ export type NormalizedEvent = {
 const networkListeners: Map<number, NetworkListener> = new Map();
 
 const POLL_INTERVAL = 10000;
-const BLOCKS_PER_POLL = 100;
+const MAX_BLOCKS_PER_QUERY = 1;
 
 export async function subscribeJobToContractListener(
   jobId: string,
@@ -149,19 +158,31 @@ async function createNetworkListener(
     throw new Error(`RPC URL not found for chain ID: ${chainId}`);
   }
 
-  const httpProvider = new ethers.JsonRpcProvider(rpcUrl);
+  const httpProvider = createPublicClient({
+    chain: getEcosystemDetails(chainId).chain,
+    transport: http(rpcUrl, {
+      batch: {
+        batchSize: 50,
+        wait: 100, // 100 ms
+      },
+      retryCount: 5,
+      retryDelay: 1500, // 1.5 seconds
+    }),
+  });
   let lastBlockProcessed = await getLastProcessedBlock(chainId);
 
   if (lastBlockProcessed === null) {
-    lastBlockProcessed = await httpProvider.getBlockNumber();
+    let blockNumber = await httpProvider.getBlockNumber();
+    lastBlockProcessed = Number(blockNumber);
     await saveLastProcessedBlock(chainId, lastBlockProcessed);
   }
 
   const listener: NetworkListener = {
     chainId,
-    httpProvider,
+    client: httpProvider,
     contracts: new Map(),
     lastProcessedBlock: lastBlockProcessed,
+    lastLoggedBlock: lastBlockProcessed,
     pollTimer: null,
     isActive: true,
     async stop() {
@@ -214,7 +235,7 @@ async function addContractToNetworkListener(
 }
 
 function startNetworkPolling(listener: NetworkListener) {
-  const { chainId, httpProvider } = listener;
+  const { chainId, client } = listener;
   const pollInterval =
     getEcosystemDetails(chainId).networkPollInterval || POLL_INTERVAL;
 
@@ -223,68 +244,163 @@ function startNetworkPolling(listener: NetworkListener) {
       return;
     }
 
+    const publicClient: PublicClient = client;
+    let currentBlock: number;
+
     try {
-      const currentBlock = await httpProvider.getBlockNumber();
-      const fromBlock = listener.lastProcessedBlock + 1;
-      const toBlock = Math.min(currentBlock, fromBlock + BLOCKS_PER_POLL - 1);
+      const currentBlockBig = await publicClient.getBlockNumber();
+      currentBlock = Number(currentBlockBig);
+    } catch (err: any) {
+      const msg = err.shortMessage || err.message || String(err);
+      console.warn(`[${chainId}] Failed to get current block number: ${msg}`);
 
-      if (fromBlock > currentBlock) {
-        return;
+      if (msg.includes("Too Many Requests") || err.code === -32005) {
+        console.warn(
+          `[${chainId}] Rate limited on getBlockNumber → backoff 15s`
+        );
+        await new Promise((r) => setTimeout(r, 5000));
       }
+      return;
+    }
 
-      const contractAddresses = Array.from(listener.contracts.keys());
+    let nextBlock = listener.lastProcessedBlock + 1;
+    if (nextBlock > currentBlock) return;
+    const maxThisPoll = MAX_BLOCKS_PER_QUERY; // e.g. 5
+    const targetBlock = Math.min(currentBlock, nextBlock + maxThisPoll - 1);
 
-      const filter: any = {
-        address: contractAddresses,
-        fromBlock,
-        toBlock,
-      };
+    const contractAddresses = Array.from(listener.contracts.keys());
+    let lastSuccessfullyProcessed = listener.lastProcessedBlock;
 
-      const logs = await httpProvider.getLogs(filter);
+    for (let bn = nextBlock; bn <= targetBlock; bn++) {
+      try {
+        console.log(
+          `[${chainId}] Processing block ${bn} with current ${currentBlock}`
+        );
+        const block = await publicClient.getBlock({
+          blockNumber: BigInt(bn),
+          includeTransactions: true,
+        });
 
-      for (const log of logs) {
-        const normalizedAddress = log.address.toLowerCase();
-        const contractSub = listener.contracts.get(normalizedAddress);
-
-        if (!contractSub) {
+        if (!block) {
+          console.warn(`[${chainId}] Block ${bn} returned null`);
           continue;
         }
 
-        try {
-          const parsed = contractSub.iface.parseLog({
-            topics: log.topics as string[],
-            data: log.data,
-          });
+        const filter: any = {
+          address: contractAddresses,
+          fromBlock: numberToHex(bn),
+          toBlock: numberToHex(bn),
+        };
 
-          if (!parsed) {
+        let blockLogs: any[] = [];
+        try {
+          blockLogs = await publicClient.getLogs(filter);
+
+          if (blockLogs == null || blockLogs === undefined) {
+            blockLogs = [];
+          }
+        } catch (logsErr: any) {
+          const msg =
+            logsErr.message || logsErr.shortMessage || String(logsErr);
+          console.warn(`[${chainId}] getLogs failed for block ${bn}: ${msg}`);
+
+          if (msg.includes("Too Many Requests") || logsErr.code === -32005) {
+            console.warn(
+              `[${chainId}] Rate limit on logs for ${bn} → backoff 5s`
+            );
+            await new Promise((r) => setTimeout(r, 5000));
+          }
+
+          blockLogs = [];
+        }
+
+        if (!Array.isArray(blockLogs)) {
+          console.warn(
+            `[${chainId}] getLogs returned non-array for ${bn}: ${typeof blockLogs}`
+          );
+          blockLogs = [];
+        }
+
+        if (blockLogs.length === 0) {
+          lastSuccessfullyProcessed = bn;
+          continue;
+        }
+        for (const log of blockLogs) {
+          const normalizedAddress = log.address.toLowerCase();
+          const contractSub = listener.contracts.get(normalizedAddress);
+
+          if (!contractSub) {
             continue;
           }
 
-          const eventName = parsed.fragment?.name || parsed.name;
-          const eventsBeingListened = contractSub.eventsBeingListened;
+          let parsedLog: any;
+          try {
+            parsedLog = contractSub.iface.parseLog({
+              topics: log.topics,
+              data: log.data,
+            });
+          } catch (err) {
+            console.warn(
+              `[${chainId}] Unable to parse log for contract ${normalizedAddress} at block ${log.blockNumber}`
+            );
+            continue;
+          }
 
+          const eventName = parsedLog.fragment?.name || parsedLog.name;
           if (
-            !eventsBeingListened.has("*") &&
-            !eventsBeingListened.has(eventName)
+            !contractSub.eventsBeingListened.has("*") &&
+            !contractSub.eventsBeingListened.has(eventName)
           ) {
             continue;
           }
 
-          const normalizedEvent = await normalizeEvent(
-            parsed,
-            log,
-            httpProvider
-          );
-          await routeEventToJobs(normalizedEvent, chainId);
-        } catch (err) {
-          console.warn("Could not parse log:", err);
-        }
-      }
+          const txIndex = Number(log.transactionIndex);
+          const tx = block.transactions[txIndex] as Transaction;
 
-      listener.lastProcessedBlock = toBlock;
-      await saveLastProcessedBlock(chainId, toBlock);
-    } catch (error) {
-      console.error(`[Chain ${chainId}] Polling error:`, error);
+          if (!tx) {
+            console.warn(`Tx index ${txIndex} missing in block ${bn}`);
+            continue;
+          }
+
+          const normalizedEvent = await normalizeEvent(parsedLog, log, tx);
+          await routeEventToJobs(normalizedEvent, chainId);
+
+          lastSuccessfullyProcessed = bn;
+        }
+      } catch (err: any) {
+        const msg = err.shortMessage || err.message || String(err);
+
+        if (msg.includes("could not be found")) {
+          console.debug(
+            `[${chainId}] Block ${bn} not found yet (retry next poll)`
+          );
+        } else if (msg.includes("Too Many Requests") || err.code === -32005) {
+          console.warn(
+            `[${chainId}] Rate limited on block ${bn} → backoff 15s`
+          );
+          await new Promise((r) => setTimeout(r, 15000));
+          break;
+        } else {
+          console.warn(`[${chainId}] Error processing block ${bn}: ${msg}`);
+        }
+
+        break;
+      }
+    }
+
+    if (lastSuccessfullyProcessed > listener.lastProcessedBlock) {
+      listener.lastProcessedBlock = lastSuccessfullyProcessed;
+      await saveLastProcessedBlock(chainId, listener.lastProcessedBlock);
+
+      if (
+        listener.lastProcessedBlock - listener.lastLoggedBlock >=
+        LOG_EVERY_N_BLOCKS
+      ) {
+        console.log(
+          `[Chain ${chainId}] Processed up to block ${listener.lastProcessedBlock}`
+        );
+        listener.lastLoggedBlock = listener.lastProcessedBlock;
+      }
     }
   }, pollInterval);
 }
@@ -477,10 +593,9 @@ export function validateEvents(
 async function normalizeEvent(
   parsed: any,
   log: any,
-  provider: ethers.Provider
+  tx: Transaction
 ): Promise<NormalizedEvent> {
   const contractAddress = log.address;
-  const tx = await provider.getTransaction(log.transactionHash);
 
   const sender: string = tx?.from || "";
   let receiver: string | undefined;
@@ -572,8 +687,6 @@ async function saveLastProcessedBlock(
 }
 
 export async function initializeListenersFromDatabase() {
-  console.log("Initializing contract listeners from database...");
-
   try {
     const activeListeners = await db
       .select()
@@ -620,6 +733,10 @@ export async function initializeListenersFromDatabase() {
             listener.eventsBeingListened
           );
         }
+
+        console.log(
+          `Initialized listener for chain ${chainId} with ${listeners.length} contracts.`
+        );
       } catch (error) {
         console.error(`Error initializing chain ${chainId}:`, error);
       }
@@ -639,4 +756,39 @@ export async function stopAllListeners() {
   }
 
   console.log("All network listeners stopped");
+}
+
+export async function testGetTransactionHash(chainId: number) {
+  const { rpcUrl } = getEcosystemDetails(chainId);
+  const httpProvider = createPublicClient({
+    chain: getEcosystemDetails(chainId).chain,
+    transport: http(rpcUrl, {
+      batch: {
+        batchSize: 50,
+        wait: 100, // 100 ms
+      },
+      retryCount: 5,
+      retryDelay: 1500, // 1.5 seconds
+    }),
+  });
+
+  let tx = await httpProvider.getTransaction({
+    hash: "0xad711845a3883c5243546db32bee59c520ec3d1c1878e0d747701f787c8d4e45",
+  });
+
+  console.log(tx);
+}
+
+async function retry<T>(
+  fn: () => Promise<T>,
+  retries = 3,
+  delayMs = 300
+): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    if (retries <= 0) throw err;
+    await new Promise((r) => setTimeout(r, delayMs));
+    return retry(fn, retries - 1, delayMs * 2);
+  }
 }
