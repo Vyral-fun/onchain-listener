@@ -22,4 +22,4 @@ COPY --from=builder /app/dist ./dist
 
 EXPOSE 3000
 
-CMD ["bun", "dist/index.js"]
+CMD ["bun", "start"]
