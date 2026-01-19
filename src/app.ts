@@ -79,6 +79,7 @@ app.route("/api/v1/onchain-listener", ApiRoutes);
 updateNetworksListeners();
 initializeListenersFromDatabase();
 
+
 process.on("SIGINT", async () => {
   console.log("Shutting down gracefully...");
   for (const listener of Object.values(runtimeNetworkListeners)) {
