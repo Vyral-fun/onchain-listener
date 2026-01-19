@@ -44,7 +44,7 @@ export async function startContractEventListener(c: Context) {
     let endDateAdjusted = endDate;
 
     if (Bun.env.NODE_ENV !== "production") {
-      stopDelayMs = 15 * 60 * 1000; // 15 minutes for non-production
+      stopDelayMs = 15 * 60 * 1000;
     }
 
     if (Bun.env.NODE_ENV !== "production") {
