@@ -8,7 +8,11 @@ import {
 } from "@/db/schema/event";
 import { getEcosystemDetails } from "@/utils/ecosystem";
 import { and, desc, eq, ne, sql } from "drizzle-orm";
-import { LOG_EVERY_N_BLOCKS, NULL_ADDRESS } from "@/utils/constants";
+import {
+  LOG_EVERY_N_BLOCKS,
+  MAX_BLOCKS_PER_POLL,
+  NULL_ADDRESS,
+} from "@/utils/constants";
 import {
   createPublicClient,
   http,
@@ -306,25 +310,39 @@ function startNetworkPolling(listener: NetworkListener) {
     if (nextBlock > currentBlock) return;
 
     const queue = getQueueForChain(chainId);
-    const blocksToQueue = Math.min(10, currentBlock - nextBlock + 1);
+    const blocksBehind = currentBlock - listener.lastProcessedBlock;
+    const blocksToQueue = Math.min(MAX_BLOCKS_PER_POLL, blocksBehind);
 
+    if (blocksBehind > 50) {
+      console.warn(
+        `[${chainId}] Falling behind! ${blocksBehind} blocks behind current block ${currentBlock}`
+      );
+
+      // TODO: We will implement alert here but we have to change the amount of blocks to be chain specific
+    }
+
+    const queuePromises = [];
     for (let i = 0; i < blocksToQueue; i++) {
       const blockNumber = nextBlock + i;
 
-      await queue.add(
-        "processBlock",
-        {
-          chainId,
-          currentBlock,
-          blockNumber,
-        },
-        {
-          jobId: `${chainId}-${blockNumber}`,
-          priority: i + 1,
-        }
+      queuePromises.push(
+        queue.add(
+          "processBlock",
+          {
+            chainId,
+            currentBlock,
+            blockNumber,
+          },
+          {
+            jobId: `${chainId}-${blockNumber}`,
+          }
+        )
       );
     }
-    listener.lastProcessedBlock = nextBlock;
+
+    await Promise.all(queuePromises);
+
+    listener.lastProcessedBlock = nextBlock + blocksToQueue - 1;
     await saveLastProcessedBlock(chainId, listener.lastProcessedBlock);
 
     if (
