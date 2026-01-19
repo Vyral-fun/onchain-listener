@@ -7,17 +7,21 @@ import {
   listenerState,
 } from "@/db/schema/event";
 import { getEcosystemDetails } from "@/utils/ecosystem";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, ne, sql } from "drizzle-orm";
 import { LOG_EVERY_N_BLOCKS, NULL_ADDRESS } from "@/utils/constants";
 import {
-  BlockNotFoundError,
   createPublicClient,
   http,
   numberToHex,
   type PublicClient,
   type Transaction,
 } from "viem";
-import { tr } from "zod/v4/locales";
+import { processBlockQueue, processBlockWorker } from "./queue";
+import {
+  getQueueForChain,
+  initializeAllChainQueues,
+  shutdownQueueForChain,
+} from "./network.queues";
 
 export interface JobEventSubscription {
   jobId: string;
@@ -228,6 +232,7 @@ async function createNetworkListener(
       }
 
       await saveLastProcessedBlock(chainId, listener.lastProcessedBlock);
+      await shutdownQueueForChain(chainId);
 
       networkListeners.delete(chainId);
     },
@@ -292,157 +297,159 @@ function startNetworkPolling(listener: NetworkListener) {
         console.warn(
           `[${chainId}] Rate limited on getBlockNumber → backoff 15s`
         );
-        await new Promise((r) => setTimeout(r, 5000));
+        await new Promise((r) => setTimeout(r, 1000));
       }
       return;
     }
 
     let nextBlock = listener.lastProcessedBlock + 1;
     if (nextBlock > currentBlock) return;
-    const maxThisPoll = MAX_BLOCKS_PER_QUERY; // e.g. 5
-    const targetBlock = Math.min(currentBlock, nextBlock + maxThisPoll - 1);
 
-    const contractAddresses = Array.from(listener.contracts.keys());
-    let lastSuccessfullyProcessed = listener.lastProcessedBlock;
+    const queue = getQueueForChain(chainId);
+    const blocksToQueue = Math.min(10, currentBlock - nextBlock + 1);
 
-    for (let bn = nextBlock; bn <= targetBlock; bn++) {
-      try {
-        console.log(
-          `[${chainId}] Processing block ${bn} with current ${currentBlock}`
-        );
-        const block = await publicClient.getBlock({
-          blockNumber: BigInt(bn),
-          includeTransactions: true,
-        });
+    for (let i = 0; i < blocksToQueue; i++) {
+      const blockNumber = nextBlock + i;
 
-        if (!block) {
-          console.warn(`[${chainId}] Block ${bn} returned null`);
-          continue;
+      await queue.add(
+        "processBlock",
+        {
+          chainId,
+          currentBlock,
+          blockNumber,
+        },
+        {
+          jobId: `${chainId}-${blockNumber}`,
+          priority: i + 1,
         }
-
-        const filter: any = {
-          address: contractAddresses,
-          fromBlock: numberToHex(bn),
-          toBlock: numberToHex(bn),
-        };
-
-        let blockLogs: any[] = [];
-        try {
-          blockLogs = await publicClient.getLogs(filter);
-
-          if (blockLogs == null || blockLogs === undefined) {
-            blockLogs = [];
-          }
-        } catch (logsErr: any) {
-          const msg =
-            logsErr.message || logsErr.shortMessage || String(logsErr);
-          console.warn(`[${chainId}] getLogs failed for block ${bn}: ${msg}`);
-
-          if (msg.includes("Too Many Requests") || logsErr.code === -32005) {
-            console.warn(
-              `[${chainId}] Rate limit on logs for ${bn} → backoff 5s`
-            );
-            await new Promise((r) => setTimeout(r, 5000));
-          }
-
-          blockLogs = [];
-        }
-
-        if (!Array.isArray(blockLogs)) {
-          console.warn(
-            `[${chainId}] getLogs returned non-array for ${bn}: ${typeof blockLogs}`
-          );
-          blockLogs = [];
-        }
-
-        if (blockLogs.length === 0) {
-          lastSuccessfullyProcessed = bn;
-          continue;
-        }
-
-        for (const log of blockLogs) {
-          const normalizedAddress = log.address.toLowerCase();
-          const contractSub = listener.contracts.get(normalizedAddress);
-
-          if (!contractSub) {
-            console.warn(
-              `[${chainId}] Log for untracked contract ${normalizedAddress} at block ${log.blockNumber}`
-            );
-            continue;
-          }
-
-          let parsedLog: any;
-          try {
-            parsedLog = contractSub.iface.parseLog({
-              topics: log.topics,
-              data: log.data,
-            });
-          } catch (err) {
-            console.warn(
-              `[${chainId}] Unable to parse log for contract ${normalizedAddress} at block ${log.blockNumber}`
-            );
-            continue;
-          }
-
-          const eventName = parsedLog.fragment?.name || parsedLog.name;
-          if (
-            !contractSub.eventsBeingListened.has("*") &&
-            !contractSub.eventsBeingListened.has(eventName)
-          ) {
-            lastSuccessfullyProcessed = bn;
-            continue;
-          }
-
-          const txIndex = Number(log.transactionIndex);
-          const tx = block.transactions[txIndex] as Transaction;
-
-          if (!tx) {
-            console.warn(`Tx index ${txIndex} missing in block ${bn}`);
-            continue;
-          }
-
-          const normalizedEvent = await normalizeEvent(parsedLog, log, tx);
-          logEvent(normalizedEvent);
-          await routeEventToJobs(normalizedEvent, chainId);
-
-          lastSuccessfullyProcessed = bn;
-        }
-      } catch (err: any) {
-        const msg = err.shortMessage || err.message || String(err);
-
-        if (msg.includes("could not be found")) {
-          console.log(
-            `[${chainId}] Block ${bn} not found yet (retry next poll)`
-          );
-        } else if (msg.includes("Too Many Requests") || err.code === -32005) {
-          console.warn(
-            `[${chainId}] Rate limited on block ${bn} → backoff 15s`
-          );
-          await new Promise((r) => setTimeout(r, 5000));
-          break;
-        } else {
-          console.warn(`[${chainId}] Error processing block ${bn}: ${msg}`);
-        }
-
-        break;
-      }
+      );
     }
+    listener.lastProcessedBlock = nextBlock;
+    await saveLastProcessedBlock(chainId, listener.lastProcessedBlock);
 
-    if (lastSuccessfullyProcessed > listener.lastProcessedBlock) {
-      listener.lastProcessedBlock = lastSuccessfullyProcessed;
-      await saveLastProcessedBlock(chainId, listener.lastProcessedBlock);
-
-      if (
-        listener.lastProcessedBlock - listener.lastLoggedBlock >=
-        LOG_EVERY_N_BLOCKS
-      ) {
-        console.log(
-          `[Chain ${chainId}] Processed up to block ${listener.lastProcessedBlock}`
-        );
-        listener.lastLoggedBlock = listener.lastProcessedBlock;
-      }
+    if (
+      listener.lastProcessedBlock - listener.lastLoggedBlock >=
+      LOG_EVERY_N_BLOCKS
+    ) {
+      console.log(
+        `[Chain ${chainId}] Processed up to block ${listener.lastProcessedBlock}`
+      );
+      listener.lastLoggedBlock = listener.lastProcessedBlock;
     }
   }, pollInterval);
+}
+
+export async function processBlock(
+  chainId: number,
+  currentBlock: number,
+  blockNumber: number
+) {
+  let listener = networkListeners.get(chainId);
+  if (!listener || !listener.isActive) {
+    console.warn(
+      `[${chainId}] No listener found for processing block ${blockNumber}`
+    );
+    return;
+  }
+  const contractAddresses = Array.from(listener.contracts.keys());
+  const filter: any = {
+    address: contractAddresses,
+    fromBlock: numberToHex(blockNumber),
+    toBlock: numberToHex(blockNumber),
+  };
+  console.log(
+    `[${listener.chainId}] Processing block ${blockNumber} with current ${currentBlock}`
+  );
+  const publicClient: PublicClient = listener.client;
+  const block = await publicClient.getBlock({
+    blockNumber: BigInt(blockNumber),
+    includeTransactions: true,
+  });
+
+  if (!block) {
+    console.warn(`[${listener.chainId}] Block ${blockNumber} returned null`);
+    return;
+  }
+
+  let blockLogs: any[] = [];
+  try {
+    blockLogs = await publicClient.getLogs(filter);
+
+    if (blockLogs == null || blockLogs === undefined) {
+      blockLogs = [];
+    }
+  } catch (logsErr: any) {
+    const msg = logsErr.message || logsErr.shortMessage || String(logsErr);
+    console.warn(
+      `[${listener.chainId}] getLogs failed for block ${blockNumber}: ${msg}`
+    );
+
+    if (msg.includes("Too Many Requests") || logsErr.code === -32005) {
+      console.warn(
+        `[${listener.chainId}] Rate limit on logs for ${blockNumber}`
+      );
+    }
+
+    blockLogs = [];
+  }
+
+  if (!Array.isArray(blockLogs)) {
+    console.warn(
+      `[${
+        listener.chainId
+      }] getLogs returned non-array for ${blockNumber}: ${typeof blockLogs}`
+    );
+    blockLogs = [];
+  }
+
+  if (blockLogs.length === 0) {
+    return;
+  }
+
+  for (const log of blockLogs) {
+    const normalizedAddress = log.address.toLowerCase();
+    const contractSub = listener.contracts.get(normalizedAddress);
+
+    if (!contractSub) {
+      console.warn(
+        `[${listener.chainId}] Log for untracked contract ${normalizedAddress} at block ${log.blockNumber}`
+      );
+      continue;
+    }
+
+    let parsedLog: any;
+    try {
+      parsedLog = contractSub.iface.parseLog({
+        topics: log.topics,
+        data: log.data,
+      });
+    } catch (err) {
+      console.warn(
+        `[${listener.chainId}] Unable to parse log for contract ${normalizedAddress} at block ${log.blockNumber}`
+      );
+      continue;
+    }
+
+    const eventName = parsedLog.fragment?.name || parsedLog.name;
+    if (
+      !contractSub.eventsBeingListened.has("*") &&
+      !contractSub.eventsBeingListened.has(eventName)
+    ) {
+      continue;
+    }
+
+    const txIndex = Number(log.transactionIndex);
+    const tx = block.transactions[txIndex] as Transaction;
+
+    if (!tx) {
+      console.warn(`Tx index ${txIndex} missing in block ${blockNumber}`);
+      continue;
+    }
+
+    const normalizedEvent = await normalizeEvent(parsedLog, log, tx);
+    logEvent(normalizedEvent);
+    await routeEventToJobs(normalizedEvent, listener.chainId);
+  }
 }
 
 async function routeEventToJobs(event: NormalizedEvent, chainId: number) {
@@ -728,6 +735,8 @@ async function saveLastProcessedBlock(
 
 export async function initializeListenersFromDatabase() {
   try {
+    initializeAllChainQueues();
+
     const activeListeners = await db
       .select()
       .from(contractListeners)
@@ -796,39 +805,4 @@ export async function stopAllListeners() {
   }
 
   console.log("All network listeners stopped");
-}
-
-export async function testGetTransactionHash(chainId: number) {
-  const { rpcUrl } = getEcosystemDetails(chainId);
-  const httpProvider = createPublicClient({
-    chain: getEcosystemDetails(chainId).chain,
-    transport: http(rpcUrl, {
-      batch: {
-        batchSize: 50,
-        wait: 100, // 100 ms
-      },
-      retryCount: 5,
-      retryDelay: 1500, // 1.5 seconds
-    }),
-  });
-
-  let tx = await httpProvider.getTransaction({
-    hash: "0xad711845a3883c5243546db32bee59c520ec3d1c1878e0d747701f787c8d4e45",
-  });
-
-  console.log(tx);
-}
-
-async function retry<T>(
-  fn: () => Promise<T>,
-  retries = 3,
-  delayMs = 300
-): Promise<T> {
-  try {
-    return await fn();
-  } catch (err) {
-    if (retries <= 0) throw err;
-    await new Promise((r) => setTimeout(r, delayMs));
-    return retry(fn, retries - 1, delayMs * 2);
-  }
 }
