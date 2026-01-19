@@ -7,7 +7,7 @@ import {
   onchainJobInvites,
   yappersDerivedAddressActivity,
 } from "@/db/schema/event";
-import { eq, desc, sql, inArray } from "drizzle-orm";
+import { eq, desc, sql, inArray, and } from "drizzle-orm";
 import { NULL_ADDRESS } from "@/utils/constants";
 import { JobOnchainRewardBodySchema } from "@/zod/yapper";
 import { getJobActivityDetails, type Job } from "@/services/job-service";
@@ -338,58 +338,89 @@ export async function getJobOnchainLeaderboard(c: Context) {
   const jobId = c.req.param("jobId");
   const sortBy = c.req.query("sortBy");
 
-  const validatedParams = z
+  const validated = z
     .object({
-      jobId: z.string().length(21, {
-        message: "Job id must be 21 characters long",
-      }),
-      sortBy: z.enum(["walletCount", "volume"]).optional(),
+      jobId: z
+        .string()
+        .length(21, { message: "Job id must be 21 characters long" }),
+      sortBy: z
+        .enum(["walletCount", "volume"])
+        .optional()
+        .default("walletCount"),
     })
     .safeParse({ jobId, sortBy });
 
-  if (!validatedParams.success) {
-    return c.json({ error: validatedParams.error }, 400);
+  if (!validated.success) {
+    return c.json({ error: validated.error.format() }, 400);
   }
 
+  const { sortBy: sortOption } = validated.data;
+
   try {
-    const walletCount = sql<number>`
-      COUNT(DISTINCT ${yappersDerivedAddressActivity.address})
-      FILTER (WHERE ${yappersDerivedAddressActivity.interacted} = true)
-    `;
-
-    const volume = sql<string>`
-      COALESCE(
-        SUM(${yappersDerivedAddressActivity.value})
-        FILTER (WHERE ${yappersDerivedAddressActivity.interacted} = true),
-        0
-      )
-    `;
-
-    const leaderboard = await db
-      .select({
-        yapperId: yappersDerivedAddressActivity.yapperid,
+    // Get all yappers with activity for this job
+    const yappersWithActivity = await db
+      .selectDistinct({
+        yapperid: yappersDerivedAddressActivity.yapperid,
         yapperUsername: yappersDerivedAddressActivity.yapperUsername,
-        walletCount,
-        volume,
+        yapperAddress: yappersDerivedAddressActivity.yapperAddress,
       })
       .from(yappersDerivedAddressActivity)
-      .where(eq(yappersDerivedAddressActivity.jobId, jobId))
-      .groupBy(
-        yappersDerivedAddressActivity.yapperid,
-        yappersDerivedAddressActivity.yapperUsername
-      )
-      .orderBy(
-        validatedParams.data.sortBy === "volume"
-          ? desc(volume)
-          : desc(walletCount)
-      );
+      .where(eq(yappersDerivedAddressActivity.jobId, jobId));
+
+    // Build leaderboard for each yapper
+    const leaderboardPromises = yappersWithActivity.map(async (yapper) => {
+      // Get affiliate addresses for this yapper
+      const affiliates = await db
+        .select({
+          address: onchainJobInvites.inviteeWalletAdress,
+        })
+        .from(onchainJobInvites)
+        .where(eq(onchainJobInvites.yapperProfileId, yapper.yapperid));
+
+      const validAddresses = [
+        yapper.yapperAddress.toLowerCase(),
+        ...affiliates.map((a) => a.address.toLowerCase()),
+      ];
+
+      const walletCount = sql<number>`COUNT(DISTINCT ${yappersDerivedAddressActivity.address}) FILTER (WHERE ${yappersDerivedAddressActivity.interacted} = true)`;
+      const volume = sql<string>`COALESCE(SUM(${yappersDerivedAddressActivity.value}) FILTER (WHERE ${yappersDerivedAddressActivity.interacted} = true), 0)`;
+
+      const stats = await db
+        .select({
+          walletCount,
+          volume,
+        })
+        .from(yappersDerivedAddressActivity)
+        .where(
+          and(
+            eq(yappersDerivedAddressActivity.jobId, jobId),
+            eq(yappersDerivedAddressActivity.yapperid, yapper.yapperid),
+            inArray(
+              sql`LOWER(${yappersDerivedAddressActivity.address})`,
+              validAddresses
+            )
+          )
+        );
+
+      return {
+        yapperId: yapper.yapperid,
+        yapperUsername: yapper.yapperUsername,
+        walletCount: stats[0]?.walletCount || 0,
+        volume: stats[0]?.volume || "0",
+      };
+    });
+
+    let leaderboard = await Promise.all(leaderboardPromises);
+
+    leaderboard.sort((a, b) =>
+      sortOption === "volume"
+        ? Number(b.volume) - Number(a.volume)
+        : b.walletCount - a.walletCount
+    );
 
     return c.json({ success: true, leaderboard }, 200);
   } catch (error) {
-    console.error(
-      "Yap.onchainListener.getJobOnchainLeaderboard.error: ",
-      error
-    );
+    console.error("Yap.onchainListener.getJobOnchainLeaderboard.error:", error);
     return c.json({ error: "Internal server error" }, 500);
   }
 }
@@ -418,7 +449,7 @@ export async function getJobOnchainRewards(c: Context) {
   const { yaps, onchainHeirarchy, onchainReward } = validatedBody.data;
 
   try {
-    const jobActivity = await getJobActivityDetails(jobId);
+    const jobActivity = await getJobActivityDetails(jobId, yaps);
 
     if (jobActivity.addresses.length === 0 && jobActivity.value === 0n) {
       return c.json({

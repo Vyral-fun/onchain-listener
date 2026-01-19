@@ -6,8 +6,20 @@ import {
   updateJobOnchainLeaderboard,
   type ContractJobEvents,
 } from "./job-service";
+import { processBlock } from "./listener-service";
+
 export const recordYapperClusterQueue = new Queue("recordYapperClusterQueue", {
   connection,
+});
+export const processBlockQueue = new Queue("processBlockQueue", {
+  connection,
+  defaultJobOptions: {
+    attempts: 5,
+    backoff: {
+      type: "exponential",
+      delay: 1000,
+    },
+  },
 });
 export const stopJobQueue = new Queue("stopJobQueue", { connection });
 export const leaderboardUpdateQueue = new Queue("leaderboardUpdateQueue", {
@@ -30,6 +42,24 @@ export const recordYapperClusterWorker = new Worker<{
   {
     connection,
     concurrency: 5,
+  }
+);
+
+export const processBlockWorker = new Worker<{
+  chainId: number;
+  currentBlock: number;
+  blockNumber: number;
+}>(
+  "processBlockQueue",
+  async (processBlockPayload) => {
+    const { chainId, currentBlock, blockNumber } = processBlockPayload.data;
+    await processBlock(chainId, currentBlock, blockNumber);
+    console.log(
+      `processBlockWorker processed block ---- ${blockNumber} for listener ${chainId}`
+    );
+  },
+  {
+    connection,
   }
 );
 
@@ -64,12 +94,20 @@ recordYapperClusterWorker.on("stalled", (job) => {
   console.error(`recordYapperClusterWorker Job ID ${job} stalled`);
 });
 
+processBlockWorker.on("failed", (job, err) =>
+  console.error(`processBlockWorker job ${job?.id} failed:`, err)
+);
+processBlockWorker.on("stalled", (job) =>
+  console.error(`processBlockWorker job ${job} stalled:`)
+);
+
 stopJobWorker.on("failed", (job, err) =>
   console.error(`stopJobWorker job ${job?.id} failed:`, err)
 );
 stopJobWorker.on("stalled", (job) =>
   console.error(`stopJobWorker job ${job} stalled:`)
 );
+
 leaderboardUpdateWorker.on("failed", (job, err) =>
   console.error(`leaderboardUpdateWorker job ${job?.id} failed:`, err)
 );

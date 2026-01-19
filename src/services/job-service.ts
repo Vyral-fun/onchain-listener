@@ -1,10 +1,11 @@
 import {
   contractEvents,
   jobs,
+  onchainJobInvites,
   yappersDerivedAddressActivity,
 } from "@/db/schema/event";
 import { type Yap } from "./yappers";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { leaderboardUpdateQueue, recordYapperClusterQueue } from "./queue";
 import { unsubscribeJobFromContractListener } from "./listener-service";
@@ -99,26 +100,59 @@ export async function updateJobOnchainLeaderboard(jobId: string) {
   await recordJobYapsActivity(yaps, jobId);
 }
 
-export async function getJobActivityDetails(jobId: string): Promise<{
+export async function getJobActivityDetails(
+  jobId: string,
+  yaps: Yap[]
+): Promise<{
   addresses: string[];
   value: bigint;
   totalInteractions: number;
 }> {
-  const result = await db
+  const affilites = await db
     .select({
-      totalInteractions: sql<number>`COUNT(*)`,
-      totalValue: sql<string>`COALESCE(SUM(${yappersDerivedAddressActivity.value}), 0)`,
-      addresses: sql<
-        string[]
-      >`ARRAY_AGG(DISTINCT ${yappersDerivedAddressActivity.address})`,
+      address: onchainJobInvites.inviteeWalletAdress,
+    })
+    .from(onchainJobInvites);
+
+  const affiliateAndYapperAddresses = Array.from(
+    new Set([
+      ...affilites.map((a) => a.address.toLowerCase()),
+      ...yaps.map((y) => y.walletAddress.toLowerCase()),
+    ])
+  );
+
+  const subquery = db
+    .select({
+      address: yappersDerivedAddressActivity.address,
+      transactionHash: yappersDerivedAddressActivity.transactionHash,
+      value: sql<string>`SUM(${yappersDerivedAddressActivity.value})`.as(
+        "value"
+      ),
     })
     .from(yappersDerivedAddressActivity)
     .where(
       and(
         eq(yappersDerivedAddressActivity.jobId, jobId),
-        eq(yappersDerivedAddressActivity.interacted, true)
+        eq(yappersDerivedAddressActivity.interacted, true),
+        inArray(
+          sql`LOWER(${yappersDerivedAddressActivity.address})`,
+          affiliateAndYapperAddresses
+        )
       )
-    );
+    )
+    .groupBy(
+      yappersDerivedAddressActivity.address,
+      yappersDerivedAddressActivity.transactionHash
+    )
+    .as("sub");
+
+  const result = await db
+    .select({
+      totalInteractions: sql<number>`COUNT(*)`,
+      totalValue: sql<string>`COALESCE(SUM(${subquery.value}), 0)`,
+      addresses: sql<string[]>`ARRAY_AGG(DISTINCT ${subquery.address})`,
+    })
+    .from(subquery);
 
   const data = result[0];
 

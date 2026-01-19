@@ -27,7 +27,6 @@ export interface NetworkContractListener {
   stop: () => Promise<void>;
 }
 
-const BLOCKS_PER_POLL = 5;
 const MAX_CONSECUTIVE_ERRORS = 5;
 const HEALTH_CHECK_INTERVAL = 60000; // 1 minute
 const POLL_INTERVAL = 8000;

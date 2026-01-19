@@ -8,7 +8,7 @@ import {
   yappersDerivedAddressActivity,
 } from "@/db/schema/event";
 import { getYapMarketAddresses } from "@/api/yap/yap";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 
 export interface Yap {
   yapperid: string;
@@ -165,19 +165,60 @@ export async function getYapperOnchainReward(
   try {
     const hierarchy = job.onchainHeirarchy;
 
-    const yapperContribution = await db
+    const yapperAffiliates = await db
       .select({
-        interactionCount: sql<number>`COUNT(*)`,
-        totalValue: sql<string>`COALESCE(SUM(${yappersDerivedAddressActivity.value}), 0)`,
+        address: onchainJobInvites.inviteeWalletAdress,
+      })
+      .from(onchainJobInvites)
+      .where(eq(onchainJobInvites.yapperProfileId, yap.yapperid));
+
+    const affiliateAddresses = Array.from(
+      new Set([
+        ...yapperAffiliates.map((a) => a.address.toLowerCase()),
+        yap.walletAddress.toLowerCase(),
+      ])
+    );
+
+    if (affiliateAddresses.length === 0) {
+      return {
+        yapperAddress: yap.walletAddress,
+        yapperId: yap.yapperid,
+        reward: 0,
+      };
+    }
+
+    const subquery = db
+      .select({
+        address: yappersDerivedAddressActivity.address,
+        transactionHash: yappersDerivedAddressActivity.transactionHash,
+        value: sql<string>`SUM(${yappersDerivedAddressActivity.value})`.as(
+          "value"
+        ),
       })
       .from(yappersDerivedAddressActivity)
       .where(
         and(
           eq(yappersDerivedAddressActivity.jobId, job.id),
           eq(yappersDerivedAddressActivity.yapperid, yap.yapperid),
-          eq(yappersDerivedAddressActivity.interacted, true)
+          eq(yappersDerivedAddressActivity.interacted, true),
+          inArray(
+            sql`LOWER(${yappersDerivedAddressActivity.address})`,
+            affiliateAddresses
+          )
         )
-      );
+      )
+      .groupBy(
+        yappersDerivedAddressActivity.address,
+        yappersDerivedAddressActivity.transactionHash
+      )
+      .as("sub");
+
+    const yapperContribution = await db
+      .select({
+        interactionCount: sql<number>`COUNT(*)`,
+        totalValue: sql<string>`COALESCE(SUM(${subquery.value}), 0)`,
+      })
+      .from(subquery);
 
     if (
       !yapperContribution ||

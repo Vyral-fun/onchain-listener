@@ -14,7 +14,7 @@ import ApiRoutes from "./api/routes/api-routes";
 import {
   runtimeNetworkListeners,
   updateNetworksListeners,
-} from "./services/campaign-service";
+} from "./services/deposit-service";
 import {
   initializeListenersFromDatabase,
   stopAllListeners,
