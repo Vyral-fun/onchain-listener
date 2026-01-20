@@ -6,6 +6,7 @@ import { abi as erc20Abi } from "../erc20.json";
 import { ethers } from "ethers";
 import { handleYapRequestCreated } from "@/api/jobs/jobs";
 import { NULL_ADDRESS } from "@/utils/constants";
+import { handleYapRequestCreatedQueue } from "./queue";
 
 type ERC20 = {
   decimals(): Promise<number>;
@@ -147,24 +148,28 @@ async function startPolling(listener: NetworkContractListener) {
               `[${chainId}] YapRequestCreated event detected for job: ${jobId}`
             );
 
-            try {
-              await handleYapRequestCreated(
+            await handleYapRequestCreatedQueue.add(
+              "handleYapRequestCreated",
+              {
                 jobId,
-                yapId,
+                yapId: Number(yapId),
                 adjustedBudget,
                 adjustedFee,
                 chainId,
-                log.transactionHash,
+                transactionHash: log.transactionHash,
                 creator,
                 asset,
-                log.blockNumber
-              );
-            } catch (error) {
-              console.error(
-                `[${chainId}] Error processing YapRequestCreated for jobId ${jobId}:`,
-                error
-              );
-            }
+                blockNumber: log.blockNumber,
+              },
+              {
+                jobId:
+                  "handleYapRequestCreated" +
+                  `-${jobId}` +
+                  `-${yapId}` +
+                  `-${log.transactionHash}`,
+                removeOnComplete: true,
+              }
+            );
           }
         } catch (parseError) {
           console.error(`[${chainId}] Error parsing log:`, parseError);

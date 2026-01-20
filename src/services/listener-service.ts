@@ -20,7 +20,6 @@ import {
   type PublicClient,
   type Transaction,
 } from "viem";
-import { processBlockQueue, processBlockWorker } from "./queue";
 import {
   getQueueForChain,
   initializeAllChainQueues,

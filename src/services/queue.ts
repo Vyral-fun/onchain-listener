@@ -7,6 +7,7 @@ import {
   type ContractJobEvents,
 } from "./job-service";
 import { processBlock } from "./listener-service";
+import { handleYapRequestCreated } from "@/api/jobs/jobs";
 
 export const recordYapperClusterQueue = new Queue("recordYapperClusterQueue", {
   connection,
@@ -21,7 +22,25 @@ export const processBlockQueue = new Queue("processBlockQueue", {
     },
   },
 });
-export const stopJobQueue = new Queue("stopJobQueue", { connection });
+export const stopJobQueue = new Queue("stopJobQueue", {
+  connection,
+  defaultJobOptions: {
+    attempts: 3,
+  },
+});
+export const handleYapRequestCreatedQueue = new Queue(
+  "handleYapRequestCreatedQueue",
+  {
+    connection,
+    defaultJobOptions: {
+      attempts: 5,
+      backoff: {
+        type: "exponential",
+        delay: 2000,
+      },
+    },
+  }
+);
 export const leaderboardUpdateQueue = new Queue("leaderboardUpdateQueue", {
   connection,
 });
@@ -83,6 +102,38 @@ export const leaderboardUpdateWorker = new Worker(
   { connection }
 );
 
+export const handleYapRequestCreatedWorker = new Worker(
+  "handleYapRequestCreatedQueue",
+  async (job) => {
+    const {
+      jobId,
+      yapId,
+      adjustedBudget,
+      adjustedFee,
+      chainId,
+      transactionHash,
+      creator,
+      asset,
+      blockNumber,
+    } = job.data;
+    await handleYapRequestCreated(
+      jobId,
+      yapId,
+      adjustedBudget,
+      adjustedFee,
+      chainId,
+      transactionHash,
+      creator,
+      asset,
+      blockNumber
+    );
+    console.log(
+      `handleYapRequestCreatedWorker processed yap request ---- ${yapId} for job ${jobId}`
+    );
+  },
+  { connection }
+);
+
 recordYapperClusterWorker.on("failed", (job, err) => {
   const yapperId = job?.data?.yap?.yapperid ?? "unknown";
   const jobId = job?.data?.yap?.jobId ?? "unknown";
@@ -99,6 +150,13 @@ processBlockWorker.on("failed", (job, err) =>
 );
 processBlockWorker.on("stalled", (job) =>
   console.error(`processBlockWorker job ${job} stalled:`)
+);
+
+handleYapRequestCreatedWorker.on("failed", (job, err) =>
+  console.error(`handleYapRequestCreatedWorker job ${job?.id} failed:`, err)
+);
+handleYapRequestCreatedWorker.on("stalled", (job) =>
+  console.error(`handleYapRequestCreatedWorker job ${job} stalled:`)
 );
 
 stopJobWorker.on("failed", (job, err) =>
