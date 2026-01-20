@@ -39,10 +39,10 @@ export async function createNetworkListener(
   chainId: number,
   contractAddress: string
 ): Promise<NetworkContractListener> {
-  const { rpcUrl, abi } = getEcosystemDetails(chainId);
+  const { depositRpcUrl, abi } = getEcosystemDetails(chainId);
 
   const iface = new ethers.Interface(abi);
-  const httpProvider = new ethers.JsonRpcProvider(rpcUrl);
+  const httpProvider = new ethers.JsonRpcProvider(depositRpcUrl);
   const currentBlock = await httpProvider.getBlockNumber();
 
   const listener: NetworkContractListener = {
@@ -143,7 +143,9 @@ async function startPolling(listener: NetworkContractListener) {
             const adjustedBudget = Number(ethers.formatUnits(budget, decimals));
             const adjustedFee = Number(ethers.formatUnits(fee, decimals));
 
-            console.log(`[${chainId}] YapRequestCreated event detected for job: ${jobId}`);
+            console.log(
+              `[${chainId}] YapRequestCreated event detected for job: ${jobId}`
+            );
 
             try {
               await handleYapRequestCreated(
