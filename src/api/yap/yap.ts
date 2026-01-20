@@ -73,3 +73,37 @@ export async function getJobYaps(jobId: string): Promise<Yap[]> {
     return [];
   }
 }
+
+export async function checkRefereeWalletAddress(
+  wallet: string
+): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `${YAP_API_URL}/api/yap/yappers/profile/wallet-address/search?walletAddress=${wallet}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${YAP_API_KEY}`,
+        },
+      }
+    );
+
+    if (!res.ok) {
+      console.error(
+        "checkRefereeWalletAddress failed:",
+        res.status,
+        await res.text()
+      );
+      return true;
+    }
+
+    const data = (await res.json()) as unknown[];
+
+    const isYapper = Array.isArray(data) && data.length > 0;
+
+    return isYapper;
+  } catch (err) {
+    console.error("checkRefereeWalletAddress error:", err);
+    return true;
+  }
+}

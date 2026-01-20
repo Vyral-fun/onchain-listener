@@ -11,6 +11,7 @@ import {
 import {
   joinOnchainInvite,
   getYapperOnchainInvites,
+  getOnchainInviteByWallet,
 } from "../controllers/yapper-controllers";
 
 const ApiRoutes = new Hono();
@@ -25,5 +26,10 @@ ApiRoutes.post("/jobs/:jobId/rewards", getJobOnchainRewards);
 
 ApiRoutes.post("/yapper/invites/join/:yapperId", joinOnchainInvite);
 ApiRoutes.get("/yapper/invites/:yapperId", getYapperOnchainInvites);
+
+ApiRoutes.get(
+  "/invites/wallet/:walletAddress",
+  getOnchainInviteByWallet
+);
 
 export default ApiRoutes;

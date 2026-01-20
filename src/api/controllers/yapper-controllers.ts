@@ -4,6 +4,7 @@ import { db } from "../../db";
 import { onchainJobInvites } from "@/db/schema/event";
 import z from "zod";
 import { joinOnchainInviteSchema } from "@/zod/yapper";
+import { checkRefereeWalletAddress } from "../yap/yap";
 
 export async function joinOnchainInvite(c: Context) {
   const yapperProfileId = c.req.param("yapperId");
@@ -51,6 +52,14 @@ export async function joinOnchainInvite(c: Context) {
       }
     }
 
+    const isYapper = await checkRefereeWalletAddress(walletAddress);
+    if (isYapper) {
+      return c.json(
+        { error: "The referred wallet address is already a Yapper." },
+        400
+      );
+    }
+
     const [invite] = await db
       .insert(onchainJobInvites)
       .values({
@@ -91,6 +100,41 @@ export async function getYapperOnchainInvites(c: Context) {
     return c.json({ success: true, invites }, 200);
   } catch (error: any) {
     console.error("Yap.onchainListener.getYapperOnchainInvites.error:", error);
+    return c.json({ error: "Internal server error" }, 500);
+  }
+}
+
+export async function getOnchainInviteByWallet(c: Context) {
+  try {
+    const walletAddress = c.req.param("walletAddress");
+    const validateWallet = z
+      .string()
+      .refine(
+        (val) =>
+          val.startsWith("0x") &&
+          val.length === 42 &&
+          /^[0-9a-fA-F]+$/.test(val.slice(2)),
+        {
+          message:
+            "Invalid wallet address. Must start with 0x and contain 40 hex characters.",
+        }
+      )
+      .safeParse(walletAddress);
+
+    if (!validateWallet.success) {
+      return c.json({ error: "Invalid wallet address" }, 400);
+    }
+
+    const invites = await db
+      .select()
+      .from(onchainJobInvites)
+      .where(
+        eq(onchainJobInvites.inviteeWalletAdress, walletAddress.toLowerCase())
+      );
+
+    return c.json(invites, 200);
+  } catch (error: any) {
+    console.error("Yap.onchainListener.getOnchainInviteByWallet.error:", error);
     return c.json({ error: "Internal server error" }, 500);
   }
 }

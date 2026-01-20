@@ -357,7 +357,6 @@ export async function getJobOnchainLeaderboard(c: Context) {
   const { sortBy: sortOption } = validated.data;
 
   try {
-    // Get all yappers with activity for this job
     const yappersWithActivity = await db
       .selectDistinct({
         yapperid: yappersDerivedAddressActivity.yapperid,
@@ -367,9 +366,7 @@ export async function getJobOnchainLeaderboard(c: Context) {
       .from(yappersDerivedAddressActivity)
       .where(eq(yappersDerivedAddressActivity.jobId, jobId));
 
-    // Build leaderboard for each yapper
     const leaderboardPromises = yappersWithActivity.map(async (yapper) => {
-      // Get affiliate addresses for this yapper
       const affiliates = await db
         .select({
           address: onchainJobInvites.inviteeWalletAdress,
