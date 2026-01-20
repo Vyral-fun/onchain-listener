@@ -72,9 +72,14 @@ export async function recordYapperClusterActivity(
     )
   );
 
+  const filteredSet = new Set(filtered);
+  const relevantEvents = contractEvents.filter((event) =>
+    filteredSet.has(event.sender.toLowerCase())
+  );
+
   const eventsByAddress = new Map<string, ContractJobEvents[]>();
 
-  for (const event of contractEvents) {
+  for (const event of relevantEvents) {
     const sender = event.sender.toLowerCase();
 
     if (!eventsByAddress.has(sender)) {
@@ -126,7 +131,7 @@ export async function recordYapperClusterActivity(
             yappersDerivedAddressActivity.jobId,
           ],
           set: {
-            value: sql`COALESCE(${yappersDerivedAddressActivity.value}, 0) + COALESCE(EXCLUDED.value, 0)`,
+            value: sql`EXCLUDED.value`,
             event: sql`EXCLUDED.event`,
             transactionHash: sql`EXCLUDED.transaction_hash`,
             interacted: sql`EXCLUDED.interacted OR ${yappersDerivedAddressActivity.interacted}`,

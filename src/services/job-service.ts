@@ -4,7 +4,7 @@ import {
   onchainJobInvites,
   yappersDerivedAddressActivity,
 } from "@/db/schema/event";
-import { type Yap } from "./yappers";
+import { recordYapperClusterActivity, type Yap } from "./yappers";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { leaderboardUpdateQueue, recordYapperClusterQueue } from "./queue";
@@ -19,8 +19,9 @@ export interface ContractJobEvents {
   sender: string;
   reciever: string;
   contractAddress: string;
-  value: number;
+  value: string;
   transactionHash: string;
+  blockNumber: bigint;
 }
 
 export interface Job {
@@ -57,19 +58,35 @@ export async function recordJobYapsActivity(yaps: Yap[], jobId: string) {
       contractAddress: contractEvents.contractAddress,
       value: contractEvents.value,
       transactionHash: contractEvents.transactionHash,
+      blockNumber: contractEvents.blockNumber,
     })
     .from(contractEvents)
     .where(eq(contractEvents.jobId, jobId));
 
-  const jobEvents: ContractJobEvents[] = dbEvents.map((ev) => ({
+  const uniqueEventsMap = new Map<string, (typeof dbEvents)[0]>();
+
+  for (const ev of dbEvents) {
+    const uniqueKey = `${ev.sender?.toLowerCase()}-${ev.reciever?.toLowerCase()}-${
+      ev.transactionHash
+    }-${ev.blockNumber}`;
+
+    if (!uniqueEventsMap.has(uniqueKey)) {
+      uniqueEventsMap.set(uniqueKey, ev);
+    }
+  }
+
+  const uniqueDbEvents = Array.from(uniqueEventsMap.values());
+
+  const jobEvents: ContractJobEvents[] = uniqueDbEvents.map((ev) => ({
     jobId: ev.jobId,
     chainId: ev.chainId,
     eventName: ev.eventName ?? "",
     sender: ev.sender ?? "",
     reciever: ev.reciever ?? "",
     contractAddress: ev.contractAddress ?? "",
-    value: Number(ev.value ?? 0),
+    value: ev.value?.toString() ?? "0",
     transactionHash: ev.transactionHash ?? "",
+    blockNumber: ev.blockNumber ?? 0,
   }));
 
   for (const yap of yaps) {
