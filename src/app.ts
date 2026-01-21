@@ -5,10 +5,10 @@ import { logger } from "hono/logger";
 import { cors } from "hono/cors";
 import { bodyLimit } from "hono/body-limit";
 
-//import { createBullBoard } from "@bull-board/api";
-//import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
-//import { HonoAdapter } from "@bull-board/hono";
-//import { serveStatic } from "@hono/node-server/serve-static";
+import { createBullBoard } from "@bull-board/api";
+import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
+import { HonoAdapter } from "@bull-board/hono";
+import { serveStatic } from "@hono/node-server/serve-static";
 
 import ApiRoutes from "./api/routes/api-routes";
 import {
@@ -19,11 +19,13 @@ import {
   initializeListenersFromDatabase,
   stopAllListeners,
 } from "./services/listener-service";
-//import {
-//  leaderboardUpdateQueue,
-//  recordYapperClusterQueue,
-//  stopJobQueue,
-//} from "./services/queue";
+import {
+  handleYapRequestCreatedQueue,
+  leaderboardUpdateQueue,
+  processBlockQueue,
+  recordYapperClusterQueue,
+  stopJobQueue,
+} from "./services/queue";
 
 const API_KEY = Bun.env.API_KEY;
 
@@ -99,18 +101,20 @@ process.on("SIGTERM", async () => {
 });
 
 // BullMQ Dashboard setup
-//const bullMQBasePath = "/admin/bull-mq/dashboard";
+const bullMQBasePath = "/admin/bull-mq/dashboard";
 
-//const serverAdapter = new HonoAdapter(serveStatic);
-//createBullBoard({
-//  queues: [
-//    new BullMQAdapter(recordYapperClusterQueue),
-//    new BullMQAdapter(stopJobQueue),
-//    new BullMQAdapter(leaderboardUpdateQueue),
-//  ],
-//  serverAdapter,
-//});
-//serverAdapter.setBasePath(bullMQBasePath);
-//app.route(bullMQBasePath, serverAdapter.registerPlugin());
+const serverAdapter = new HonoAdapter(serveStatic);
+createBullBoard({
+  queues: [
+    new BullMQAdapter(recordYapperClusterQueue),
+    new BullMQAdapter(stopJobQueue),
+    new BullMQAdapter(leaderboardUpdateQueue),
+    new BullMQAdapter(processBlockQueue),
+    new BullMQAdapter(handleYapRequestCreatedQueue),
+  ],
+  serverAdapter,
+});
+serverAdapter.setBasePath(bullMQBasePath);
+app.route(bullMQBasePath, serverAdapter.registerPlugin());
 
 export default app;
