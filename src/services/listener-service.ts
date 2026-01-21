@@ -324,6 +324,10 @@ function startNetworkPolling(listener: NetworkListener) {
     for (let i = 0; i < blocksToQueue; i++) {
       const blockNumber = nextBlock + i;
 
+      console.log(
+        `[${chainId}] Queuing block ${blockNumber} for processing (current: ${currentBlock})`
+      );
+
       queuePromises.push(
         queue.add(
           "processBlock",
