@@ -193,7 +193,9 @@ async function createNetworkListener(
     );
 
     await db.delete(listenerState).where(eq(listenerState.chainId, chainId));
-    await saveLastProcessedBlock(chainId, lastBlockProcessed);
+    console.log(
+      `[Chain ${chainId}] Cleared saved listener state due to no active jobs`
+    );
   } else {
     const savedBlock = await getLastProcessedBlock(chainId);
 
