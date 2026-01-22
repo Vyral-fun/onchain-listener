@@ -5,7 +5,7 @@ import {
 import { abi as erc20Abi } from "../erc20.json";
 import { ethers } from "ethers";
 import { handleYapRequestCreated } from "@/api/jobs/jobs";
-import { MAX_BLOCKS_PER_QUERY, NULL_ADDRESS } from "@/utils/constants";
+import { LOG_EVERY_N_BLOCKS, MAX_BLOCKS_PER_QUERY, NULL_ADDRESS } from "@/utils/constants";
 import { handleYapRequestCreatedQueue } from "./queue";
 
 const decimalsCache = new Map<string, number>();
@@ -33,8 +33,6 @@ export interface NetworkContractListener {
 const MAX_CONSECUTIVE_ERRORS = 5;
 const HEALTH_CHECK_INTERVAL = 60000; // 1 minute
 const POLL_INTERVAL = 8000;
-const LOG_EVERY_N_BLOCKS = 10;
-
 export const runtimeNetworkListeners: Record<number, NetworkContractListener> =
   {};
 
