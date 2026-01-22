@@ -18,6 +18,7 @@ import {
 } from "viem";
 import {
   getQueueForChain,
+  getWorkerForChain,
   initializeAllChainQueues,
   shutdownQueueForChain,
 } from "./network.queues";
@@ -240,6 +241,9 @@ async function createNetworkListener(
       networkListeners.delete(chainId);
     },
   };
+
+  getQueueForChain(chainId);
+  getWorkerForChain(chainId);
 
   startNetworkPolling(listener);
   return listener;
