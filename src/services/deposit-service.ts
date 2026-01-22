@@ -5,7 +5,11 @@ import {
 import { abi as erc20Abi } from "../erc20.json";
 import { ethers } from "ethers";
 import { handleYapRequestCreated } from "@/api/jobs/jobs";
-import { LOG_EVERY_N_BLOCKS, MAX_BLOCKS_PER_QUERY, NULL_ADDRESS } from "@/utils/constants";
+import {
+  LOG_EVERY_N_BLOCKS,
+  MAX_BLOCKS_PER_QUERY,
+  NULL_ADDRESS,
+} from "@/utils/constants";
 import { handleYapRequestCreatedQueue } from "./queue";
 
 const decimalsCache = new Map<string, number>();
@@ -94,7 +98,7 @@ async function startPolling(listener: NetworkContractListener) {
         currentBlock - listener.lastLoggedBlock >= LOG_EVERY_N_BLOCKS
       ) {
         console.log(
-          `[${chainId}] Polling | head=${currentBlock} lastProcessed=${listener.lastProcessedBlock} lag=${blocksBehind}`
+          `[${chainId}] Deposit Polling | head=${currentBlock} lastProcessed=${listener.lastProcessedBlock} lag=${blocksBehind}`
         );
 
         listener.lastLoggedBlock = currentBlock;
