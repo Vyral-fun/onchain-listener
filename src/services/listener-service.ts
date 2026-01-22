@@ -196,6 +196,7 @@ async function createNetworkListener(
     console.log(
       `[Chain ${chainId}] Cleared saved listener state due to no active jobs`
     );
+    await shutdownQueueForChain(chainId);
   } else {
     const savedBlock = await getLastProcessedBlock(chainId);
 
