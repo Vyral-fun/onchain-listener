@@ -8,6 +8,8 @@ import { handleYapRequestCreated } from "@/api/jobs/jobs";
 import { MAX_BLOCKS_PER_QUERY, NULL_ADDRESS } from "@/utils/constants";
 import { handleYapRequestCreatedQueue } from "./queue";
 
+const decimalsCache = new Map<string, number>();
+
 type ERC20 = {
   decimals(): Promise<number>;
 };
@@ -63,7 +65,7 @@ export async function createNetworkListener(
       listener.isActive = false;
 
       if (listener.pollTimer) {
-        clearInterval(listener.pollTimer);
+        clearTimeout(listener.pollTimer);
         listener.pollTimer = null;
       }
 
@@ -78,23 +80,38 @@ export async function createNetworkListener(
 
 async function startPolling(listener: NetworkContractListener) {
   const { chainId, contractAddress, httpProvider, iface } = listener;
-
-  listener.pollTimer = setInterval(async () => {
+  const poll = async () => {
     if (!listener.isActive) {
-      if (listener.pollTimer) clearInterval(listener.pollTimer);
+      if (listener.pollTimer) clearTimeout(listener.pollTimer);
       return;
     }
 
     try {
       const currentBlock = await httpProvider.getBlockNumber();
       const fromBlock = listener.lastProcessedBlock + 1;
-      const toBlock = Math.min(
-        currentBlock,
-        fromBlock + MAX_BLOCKS_PER_QUERY - 1
-      );
+      const blocksBehind = currentBlock - listener.lastProcessedBlock;
+
+      const dynamicInterval =
+        blocksBehind > 100 ? 1000 : blocksBehind > 50 ? 1500 : POLL_INTERVAL;
+
+      const batchSize =
+        blocksBehind > 1000
+          ? 2000
+          : blocksBehind > 500
+          ? 1000
+          : blocksBehind > 200
+          ? 500
+          : blocksBehind > 50
+          ? 20
+          : blocksBehind > 10
+          ? 10
+          : MAX_BLOCKS_PER_QUERY;
+
+      const toBlock = Math.min(currentBlock, fromBlock + batchSize - 1);
 
       if (fromBlock > toBlock) {
         listener.lastPollTime = Date.now();
+        listener.pollTimer = setTimeout(poll, dynamicInterval);
         return;
       }
 
@@ -126,12 +143,19 @@ async function startPolling(listener: NetworkContractListener) {
             let decimals = 18;
             if (asset !== NULL_ADDRESS) {
               try {
-                const tokenContract = new ethers.Contract(
-                  asset,
-                  erc20Abi,
-                  httpProvider
-                ) as unknown as ERC20;
-                decimals = await tokenContract.decimals();
+                const cached = decimalsCache.get(asset);
+                if (cached !== undefined) {
+                  decimals = cached;
+                } else {
+                  const tokenContract = new ethers.Contract(
+                    asset,
+                    erc20Abi,
+                    httpProvider
+                  ) as unknown as ERC20;
+
+                  decimals = await tokenContract.decimals();
+                  decimalsCache.set(asset, decimals);
+                }
               } catch (error) {
                 console.error(
                   `[${chainId}] Error fetching decimals for asset ${asset}:`,
@@ -178,6 +202,10 @@ async function startPolling(listener: NetworkContractListener) {
       listener.lastProcessedBlock = toBlock;
       listener.lastPollTime = Date.now();
       listener.consecutiveErrors = 0;
+
+      const remainingBlocks = currentBlock - toBlock;
+      const nextPollDelay = remainingBlocks > 10 ? 0 : dynamicInterval;
+      listener.pollTimer = setTimeout(poll, nextPollDelay);
     } catch (error) {
       listener.consecutiveErrors++;
       console.error(
@@ -190,9 +218,14 @@ async function startPolling(listener: NetworkContractListener) {
           `[${chainId}] Too many consecutive errors. Stopping listener. Manual intervention required.`
         );
         await listener.stop();
+        return;
       }
+
+      listener.pollTimer = setTimeout(poll, POLL_INTERVAL);
     }
-  }, POLL_INTERVAL);
+  };
+
+  poll();
 }
 
 export function startHealthCheck() {
