@@ -91,10 +91,15 @@ async function startPolling(listener: NetworkContractListener) {
       const fromBlock = listener.lastProcessedBlock + 1;
       const blocksBehind = currentBlock - listener.lastProcessedBlock;
 
-      if (blocksBehind > 10) {
+      if (
+        blocksBehind > 10 &&
+        currentBlock - listener.lastLoggedBlock >= LOG_EVERY_N_BLOCKS
+      ) {
         console.log(
           `[${chainId}] Polling | head=${currentBlock} lastProcessed=${listener.lastProcessedBlock} lag=${blocksBehind}`
         );
+
+        listener.lastLoggedBlock = currentBlock;
       }
 
       const dynamicInterval =
@@ -119,10 +124,6 @@ async function startPolling(listener: NetworkContractListener) {
         listener.lastPollTime = Date.now();
         listener.pollTimer = setTimeout(poll, dynamicInterval);
         return;
-      }
-
-      if (toBlock >= listener.lastLoggedBlock + LOG_EVERY_N_BLOCKS) {
-        listener.lastLoggedBlock = toBlock;
       }
 
       const logs = await httpProvider.getLogs({
