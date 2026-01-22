@@ -21,7 +21,7 @@ export interface ContractJobEvents {
   contractAddress: string;
   value: string;
   transactionHash: string;
-  blockNumber: bigint;
+  blockNumber: string;
 }
 
 export interface Job {
@@ -86,7 +86,7 @@ export async function recordJobYapsActivity(yaps: Yap[], jobId: string) {
     contractAddress: ev.contractAddress ?? "",
     value: ev.value?.toString() ?? "0",
     transactionHash: ev.transactionHash ?? "",
-    blockNumber: ev.blockNumber ?? 0,
+    blockNumber: ev.blockNumber?.toString() ?? "0",
   }));
 
   for (const yap of yaps) {
