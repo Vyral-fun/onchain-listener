@@ -446,13 +446,14 @@ export async function getJobOnchainRewards(c: Context) {
   const { yaps, onchainHeirarchy, onchainReward } = validatedBody.data;
 
   try {
+    const adjustedBudget = onchainReward - 1;
     const jobActivity = await getJobActivityDetails(jobId, yaps);
 
     if (jobActivity.addresses.length === 0 && jobActivity.value === 0n) {
       return c.json({
         jobId,
         hierarchy: onchainHeirarchy,
-        totalReward: onchainReward,
+        totalReward: adjustedBudget,
         rewards: yaps.map((yap) => ({
           yapperid: yap.yapperid,
           yapperAddress: yap.walletAddress,
@@ -464,7 +465,7 @@ export async function getJobOnchainRewards(c: Context) {
     const job: Job = {
       id: jobId,
       onchainHeirarchy,
-      onchainReward,
+      onchainReward: adjustedBudget,
       addresses: jobActivity.addresses,
       value: jobActivity.value,
       totalInteractions: jobActivity.totalInteractions,
@@ -479,7 +480,7 @@ export async function getJobOnchainRewards(c: Context) {
     return c.json({
       jobId,
       hierarchy: onchainHeirarchy,
-      totalReward: onchainReward,
+      totalReward: adjustedBudget,
       rewards: rewards.map((r) => ({
         yapperid: r.yapperId,
         yapperAddress: r.yapperAddress,
