@@ -26,6 +26,7 @@ import {
   recordYapperClusterQueue,
   stopJobQueue,
 } from "./services/queue";
+import { flushQueue } from "scripts/flushQueue";
 
 const API_KEY = Bun.env.API_KEY;
 
@@ -80,6 +81,7 @@ app.get("/health", (c: Context) => {
 app.route("/api/v1/onchain-listener", ApiRoutes);
 await updateNetworksListeners();
 await initializeListenersFromDatabase();
+await flushQueue();
 
 process.on("SIGINT", async () => {
   console.log("Shutting down gracefully...");
