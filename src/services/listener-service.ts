@@ -198,7 +198,6 @@ async function createNetworkListener(
     const currentBlock = await httpProvider.getBlockNumber();
     const blockLag = Number(currentBlock) - (savedBlock ?? 0);
 
-    // If the saved block is more than 5000 blocks behind, start from current block
     if (savedBlock === null || blockLag > 50) {
       lastBlockProcessed = Number(currentBlock);
       console.log(

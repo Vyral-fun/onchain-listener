@@ -32,7 +32,7 @@ export const ECOSYSTEM_DETAILS = [
     apiKey: Bun.env.ALCHEMY_BASE_SEPOLIA_KEY,
     rpcUrl: Bun.env.BASE_SEPOLIA_PROVIDER_URL,
     depositRpcUrl: Bun.env.BASE_DEPOSIT_RPC_URL,
-    networkPollInterval: 2000, // 2 seconds
+    networkPollInterval: 1000, // 1 second
     env: "development",
     forActiveListener: true,
     abi: escrowV2Abi,
@@ -46,7 +46,7 @@ export const ECOSYSTEM_DETAILS = [
     apiKey: Bun.env.ALCHEMY_BASE_MAINNET_KEY,
     rpcUrl: Bun.env.BASE_MAINNET_PROVIDER_URL,
     depositRpcUrl: Bun.env.BASE_DEPOSIT_RPC_URL,
-    networkPollInterval: 2000, // 2 seconds
+    networkPollInterval: 1000, // 1 second
     env: "prod",
     forActiveListener: true,
     abi: escrowV2Abi,
