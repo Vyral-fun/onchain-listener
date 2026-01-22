@@ -755,7 +755,7 @@ async function saveLastProcessedBlock(
 
 export async function initializeListenersFromDatabase() {
   try {
-    initializeAllChainQueues();
+    await initializeAllChainQueues();
 
     const activeListeners = await db
       .select()

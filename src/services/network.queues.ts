@@ -6,6 +6,9 @@ import {
   getEcosystemDetails,
   getEnvChainIdsForActiveListeners,
 } from "@/utils/ecosystem";
+import { db } from "@/db";
+import { jobs } from "@/db/schema/event";
+import { and, eq } from "drizzle-orm";
 
 const processBlockQueues = new Map<number, Queue>();
 const processBlockWorkers = new Map<number, Worker>();
@@ -97,10 +100,22 @@ function getConcurrencyForChain(chainId: number): number {
   return 2;
 }
 
-export function initializeAllChainQueues() {
+export async function initializeAllChainQueues() {
   const activeChainIds = getEnvChainIdsForActiveListeners();
 
+  const activeJobs = await db
+    .select()
+    .from(jobs)
+    .where(eq(jobs.isActive, true));
+
+  const chainsWithJobs = new Set(activeJobs.map((j) => j.chainId));
+
   for (const chainId of activeChainIds) {
+    if (!chainsWithJobs.has(chainId)) {
+      await shutdownQueueForChain(chainId);
+      continue;
+    }
+
     getQueueForChain(chainId);
     getWorkerForChain(chainId);
   }
