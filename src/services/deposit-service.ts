@@ -91,6 +91,12 @@ async function startPolling(listener: NetworkContractListener) {
       const fromBlock = listener.lastProcessedBlock + 1;
       const blocksBehind = currentBlock - listener.lastProcessedBlock;
 
+      if (blocksBehind > 10) {
+        console.log(
+          `[${chainId}] Polling | head=${currentBlock} lastProcessed=${listener.lastProcessedBlock} lag=${blocksBehind}`
+        );
+      }
+
       const dynamicInterval =
         blocksBehind > 100 ? 1000 : blocksBehind > 50 ? 1500 : POLL_INTERVAL;
 
