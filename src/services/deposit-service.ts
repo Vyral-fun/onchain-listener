@@ -5,7 +5,7 @@ import {
 import { abi as erc20Abi } from "../erc20.json";
 import { ethers } from "ethers";
 import { handleYapRequestCreated } from "@/api/jobs/jobs";
-import { NULL_ADDRESS } from "@/utils/constants";
+import { MAX_BLOCKS_PER_QUERY, NULL_ADDRESS } from "@/utils/constants";
 import { handleYapRequestCreatedQueue } from "./queue";
 
 type ERC20 = {
@@ -88,7 +88,6 @@ async function startPolling(listener: NetworkContractListener) {
     try {
       const currentBlock = await httpProvider.getBlockNumber();
       const fromBlock = listener.lastProcessedBlock + 1;
-      const MAX_BLOCKS_PER_QUERY = 2000;
       const toBlock = Math.min(
         currentBlock,
         fromBlock + MAX_BLOCKS_PER_QUERY - 1

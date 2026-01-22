@@ -8,11 +8,7 @@ import {
 } from "@/db/schema/event";
 import { getEcosystemDetails } from "@/utils/ecosystem";
 import { and, desc, eq, ne, sql } from "drizzle-orm";
-import {
-  LOG_EVERY_N_BLOCKS,
-  MAX_BLOCKS_PER_POLL,
-  NULL_ADDRESS,
-} from "@/utils/constants";
+import { LOG_EVERY_N_BLOCKS, NULL_ADDRESS } from "@/utils/constants";
 import {
   createPublicClient,
   http,
@@ -65,7 +61,7 @@ export type NormalizedEvent = {
 const networkListeners: Map<number, NetworkListener> = new Map();
 
 const POLL_INTERVAL = 10000;
-const MAX_BLOCKS_PER_QUERY = 1;
+const MAX_BLOCKS_PER_QUERY = 3;
 
 export async function subscribeJobToContractListener(
   jobId: string,
@@ -313,7 +309,7 @@ function startNetworkPolling(listener: NetworkListener) {
 
     const queue = getQueueForChain(chainId);
     const blocksBehind = currentBlock - listener.lastProcessedBlock;
-    const blocksToQueue = Math.min(MAX_BLOCKS_PER_POLL, blocksBehind);
+    const blocksToQueue = Math.min(MAX_BLOCKS_PER_QUERY, blocksBehind);
 
     if (blocksBehind > 50) {
       console.warn(
