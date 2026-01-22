@@ -138,11 +138,18 @@ export async function getJobActivityDetails(
     ])
   );
 
+  if (affiliateAndYapperAddresses.length === 0) {
+    return {
+      addresses: [],
+      value: 0n,
+      totalInteractions: 0,
+    };
+  }
+
   const subquery = db
     .select({
-      address: yappersDerivedAddressActivity.address,
       transactionHash: yappersDerivedAddressActivity.transactionHash,
-      value: sql<string>`SUM(${yappersDerivedAddressActivity.value})`.as(
+      value: sql<string>`MAX(${yappersDerivedAddressActivity.value})`.as(
         "value"
       ),
     })
@@ -157,17 +164,25 @@ export async function getJobActivityDetails(
         )
       )
     )
-    .groupBy(
-      yappersDerivedAddressActivity.address,
-      yappersDerivedAddressActivity.transactionHash
-    )
+    .groupBy(yappersDerivedAddressActivity.transactionHash)
     .as("sub");
 
   const result = await db
     .select({
       totalInteractions: sql<number>`COUNT(*)`,
       totalValue: sql<string>`COALESCE(SUM(${subquery.value}), 0)`,
-      addresses: sql<string[]>`ARRAY_AGG(DISTINCT ${subquery.address})`,
+      addresses: sql<string[]>`
+      ARRAY(
+        SELECT DISTINCT LOWER(address)
+        FROM ${yappersDerivedAddressActivity}
+        WHERE job_id = ${jobId}
+          AND interacted = true
+          AND LOWER(address) IN (${sql.join(
+            affiliateAndYapperAddresses.map((a) => sql`${a}`),
+            sql`, `
+          )})
+      )
+    `,
     })
     .from(subquery);
 
