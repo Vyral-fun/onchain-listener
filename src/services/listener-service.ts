@@ -577,10 +577,13 @@ export async function unsubscribeJobFromContractListener(jobId: string) {
       const normalizedAddress = contractAddress.toLowerCase();
       networkListener.contracts.delete(normalizedAddress);
 
-      if (networkListener.contracts.size === 0) {
-        await networkListener.stop();
-      }
+      await networkListener.stop();
     }
+
+    await db.delete(listenerState).where(eq(listenerState.chainId, chainId));
+    console.log(
+      `[Chain ${chainId}] Deleted listener state, stopped chain listener due to no active contracts`
+    );
   } else {
     await db
       .update(contractListeners)
