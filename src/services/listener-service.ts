@@ -195,9 +195,11 @@ async function createNetworkListener(
     await shutdownQueueForChain(chainId);
   } else {
     const savedBlock = await getLastProcessedBlock(chainId);
+    const currentBlock = await httpProvider.getBlockNumber();
+    const blockLag = Number(currentBlock) - (savedBlock ?? 0);
 
-    if (savedBlock === null) {
-      const currentBlock = await httpProvider.getBlockNumber();
+    // If the saved block is more than 5000 blocks behind, start from current block
+    if (savedBlock === null || blockLag > 50) {
       lastBlockProcessed = Number(currentBlock);
       console.log(
         `[Chain ${chainId}] No saved state, starting from current block: ${lastBlockProcessed}`
