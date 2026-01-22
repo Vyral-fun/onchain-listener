@@ -133,14 +133,20 @@ export async function shutdownQueueForChain(chainId: number) {
   const worker = processBlockWorkers.get(chainId);
   const queue = processBlockQueues.get(chainId);
 
+  if (queue) {
+    await queue.pause();
+
+    await queue.drain(true);
+
+    await queue.obliterate({ force: true });
+
+    await queue.close();
+    processBlockQueues.delete(chainId);
+  }
+
   if (worker) {
     await worker.close();
     processBlockWorkers.delete(chainId);
-  }
-
-  if (queue) {
-    await queue.close();
-    processBlockQueues.delete(chainId);
   }
 
   console.log(`Shut down queue and worker for chain ${chainId}`);
