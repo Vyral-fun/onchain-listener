@@ -14,6 +14,7 @@ import {
 export const BATCH_SIZE = 500;
 export const MAX_BLOCKS_PER_QUERY = 3;
 const isProd = Bun.env.NODE_ENV === "production";
+export const TIMEOUT_MS = 30_000;
 export const UPDATE_INTERVAL_MS = isProd ? 24 * 60 * 60 * 1000 : 1 * 60 * 1000;
 export const LOG_EVERY_N_BLOCKS = isProd ? 100 : 20;
 export const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
