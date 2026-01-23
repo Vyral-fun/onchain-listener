@@ -1,10 +1,23 @@
 import { db } from "@/db";
-import { NULL_ADDRESS } from "@/utils/constants";
+import { NULL_ADDRESS, TIMEOUT_MS } from "@/utils/constants";
 import { getAlchemyInstance, getEcosystemDetails } from "@/utils/ecosystem";
 import { AssetTransfersCategory } from "alchemy-sdk";
 import { Interface } from "ethers";
 import { ethers } from "ethers";
 import { getAddress } from "viem";
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => {
+        const error = new Error("Operation timed out");
+        error.name = "TimeoutError";
+        reject(error);
+      }, ms)
+    ),
+  ]);
+}
 
 export async function getOnchainAddressesInteractedWith(
   address: string,
@@ -12,18 +25,31 @@ export async function getOnchainAddressesInteractedWith(
 ) {
   try {
     const alchemy = getAlchemyInstance(chainId);
-
-    const outwardTransferData = await alchemy.core.getAssetTransfers({
-      fromBlock: "0x0",
-      fromAddress: address,
-      category: [
-        AssetTransfersCategory.ERC20,
-        AssetTransfersCategory.EXTERNAL,
-        AssetTransfersCategory.ERC721,
-        AssetTransfersCategory.ERC1155,
-      ],
-    });
-
+    const [outwardTransferData, inwardTransferData] = await withTimeout(
+      Promise.all([
+        alchemy.core.getAssetTransfers({
+          fromBlock: "0x0",
+          fromAddress: address,
+          category: [
+            AssetTransfersCategory.ERC20,
+            AssetTransfersCategory.EXTERNAL,
+            AssetTransfersCategory.ERC721,
+            AssetTransfersCategory.ERC1155,
+          ],
+        }),
+        alchemy.core.getAssetTransfers({
+          fromBlock: "0x0",
+          toAddress: address,
+          category: [
+            AssetTransfersCategory.ERC20,
+            AssetTransfersCategory.EXTERNAL,
+            AssetTransfersCategory.ERC721,
+            AssetTransfersCategory.ERC1155,
+          ],
+        }),
+      ]),
+      TIMEOUT_MS
+    );
     const outwardAddresses = [
       ...new Set(
         outwardTransferData.transfers
@@ -31,18 +57,6 @@ export async function getOnchainAddressesInteractedWith(
           .filter((a): a is string => !!a && a !== NULL_ADDRESS)
       ),
     ];
-
-    const inwardTransferData = await alchemy.core.getAssetTransfers({
-      fromBlock: "0x0",
-      toAddress: address,
-      category: [
-        AssetTransfersCategory.ERC20,
-        AssetTransfersCategory.EXTERNAL,
-        AssetTransfersCategory.ERC721,
-        AssetTransfersCategory.ERC1155,
-      ],
-    });
-
     const inwardAddresses = [
       ...new Set(
         inwardTransferData.transfers
@@ -50,14 +64,18 @@ export async function getOnchainAddressesInteractedWith(
           .filter((a): a is string => !!a && a !== NULL_ADDRESS)
       ),
     ];
-
     const allAddresses = [
       ...new Set([...outwardAddresses, ...inwardAddresses]),
     ];
-
     return { outwardTransferData, inwardTransferData, allAddresses };
-  } catch (error) {
-    console.error("Error fetching asset transfers:", error);
+  } catch (error: any) {
+    if (error.name === "TimeoutError") {
+      console.warn(
+        `getOnchainAddressesInteractedWith timed out after ${TIMEOUT_MS}ms`
+      );
+    } else {
+      console.error("Error fetching asset transfers:", error);
+    }
     return {
       outwardTransferData: { transfers: [] },
       inwardTransferData: { transfers: [] },

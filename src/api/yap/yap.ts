@@ -1,10 +1,13 @@
 import type { Yap } from "@/services/yappers";
-import { YAP_API_KEY, YAP_API_URL } from "@/utils/constants";
+import { TIMEOUT_MS, YAP_API_KEY, YAP_API_URL } from "@/utils/constants";
 
 export async function getYapMarketAddresses(
   twitterNames: string[]
 ): Promise<string[]> {
   if (twitterNames.length === 0) return [];
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   try {
     const res = await fetch(`${YAP_API_URL}/api/yap/onchain/yappers`, {
@@ -12,6 +15,7 @@ export async function getYapMarketAddresses(
         "Content-Type": "application/json",
         Authorization: `Bearer ${YAP_API_KEY}`,
       },
+      signal: controller.signal,
     });
 
     if (!res.ok) {
@@ -34,9 +38,15 @@ export async function getYapMarketAddresses(
       .map((yapper) => yapper.walletAddress);
 
     return walletAddresses;
-  } catch (err) {
-    console.error("getYapMarketAddresses error:", err);
+  } catch (err: any) {
+    if (err.name === "AbortError") {
+      console.warn(`getYapMarketAddresses timed out after ${TIMEOUT_MS}ms`);
+    } else {
+      console.error("getYapMarketAddresses error:", err);
+    }
     return [];
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

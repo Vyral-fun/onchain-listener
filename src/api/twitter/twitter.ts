@@ -1,3 +1,5 @@
+import { TIMEOUT_MS } from "@/utils/constants";
+
 export async function getTwitterName(username: string) {
   try {
     const baseUrl = "https://api.twitterapi.io/twitter/user/search";
@@ -30,18 +32,22 @@ export async function getTwitterFollowersName(username: string) {
   const allFollowers: string[] = [];
   let cursor = "";
   let hasNextPage = true;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
   try {
     while (hasNextPage) {
       const url = new URL(baseUrl);
       url.searchParams.append("userName", username);
       url.searchParams.append("cursor", cursor);
-      url.searchParams.append("pageSize", "200");
+      url.searchParams.append("pageSize", "100");
 
       const response = await fetch(url.toString(), {
         method: "GET",
         headers: {
           "X-API-Key": Bun.env.TWITTER_API_KEY,
         },
+        signal: controller.signal,
       });
 
       if (!response.ok) {
@@ -58,8 +64,14 @@ export async function getTwitterFollowersName(username: string) {
     }
 
     return allFollowers;
-  } catch (error) {
-    console.error("Error fetching Twitter followers:", error);
+  } catch (error: any) {
+    if (error.name === "AbortError") {
+      console.warn(`getTwitterFollowersName timed out after ${TIMEOUT_MS}ms`);
+    } else {
+      console.error("Error fetching Twitter followers:", error);
+    }
     return [];
+  } finally {
+    clearTimeout(timeout);
   }
 }
