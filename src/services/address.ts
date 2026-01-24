@@ -87,6 +87,10 @@ export async function getOnchainAddressesInteractedWith(
 export async function checkENS(
   names: string[]
 ): Promise<{ name: string; address: string }[]> {
+  if (names.length === 0) {
+    return [];
+  }
+
   const results: { name: string; address: string }[] = [];
 
   const allENSNames = new Set<string>();

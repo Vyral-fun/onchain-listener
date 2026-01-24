@@ -23,9 +23,11 @@ export async function recordYapperClusterActivity(
   chainId: number,
   contractEvents: ContractJobEvents[]
 ) {
-  const twitterFollowersNames = await getTwitterFollowersName(
-    yap.twitterUsername
-  );
+  // const twitterFollowersNames = await getTwitterFollowersName(
+  //   yap.twitterUsername
+  // );
+
+  const twitterFollowersNames: string[] = [];
 
   const onchainInvitesData = await getYapperOnchainInvitesData(yap.yapperid);
   const onchainInvitesAddresses = onchainInvitesData.map(
