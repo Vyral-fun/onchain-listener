@@ -81,7 +81,7 @@ app.get("/health", (c: Context) => {
 app.route("/api/v1/onchain-listener", ApiRoutes);
 await updateNetworksListeners();
 await initializeListenersFromDatabase();
-await processBlock(84532, 41636070, 41636080);
+await processBlock(8453, 41636070, 41636080);
 
 process.on("SIGINT", async () => {
   console.log("Shutting down gracefully...");
