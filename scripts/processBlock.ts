@@ -8,6 +8,7 @@ import { ethers } from "ethers";
 import { abi as erc20Abi } from "../src/erc20.json";
 import { handleYapRequestCreatedQueue } from "@/services/queue";
 import { getEcosystemDetails } from "@/utils/ecosystem";
+import { handleYapRequestCreated } from "@/api/jobs/jobs";
 
 export async function processBlock(
   chainId: number,
@@ -74,28 +75,44 @@ export async function processBlock(
             `[${chainId}] YapRequestCreated event detected for job: ${jobId} from manual script at block ${log.blockNumber}`
           );
 
-          await handleYapRequestCreatedQueue.add(
-            "handleYapRequestCreated",
-            {
-              jobId,
-              yapId: Number(yapId),
-              adjustedBudget,
-              adjustedFee,
-              chainId,
-              transactionHash: log.transactionHash,
-              creator,
-              asset,
-              blockNumber: log.blockNumber,
-            },
-            {
-              jobId:
-                "handleYapRequestCreated" +
-                `-${jobId}` +
-                `-${yapId}` +
-                `-${log.transactionHash}`,
-              removeOnComplete: true,
-            }
+          await handleYapRequestCreated(
+            jobId,
+            yapId,
+            adjustedBudget,
+            adjustedFee,
+            chainId,
+            log.transactionHash,
+            creator,
+            asset,
+            log.blockNumber
           );
+
+          console.log(
+            `handleYapRequestCreated processed yap request ---- ${yapId} for job ${jobId} from manual script`
+          );
+
+          //   await handleYapRequestCreatedQueue.add(
+          //     "handleYapRequestCreated",
+          //     {
+          //       jobId,
+          //       yapId: Number(yapId),
+          //       adjustedBudget,
+          //       adjustedFee,
+          //       chainId,
+          //       transactionHash: log.transactionHash,
+          //       creator,
+          //       asset,
+          //       blockNumber: log.blockNumber,
+          //     },
+          //     {
+          //       jobId:
+          //         "handleYapRequestCreated" +
+          //         `-${jobId}` +
+          //         `-${yapId}` +
+          //         `-${log.transactionHash}`,
+          //       removeOnComplete: true,
+          //     }
+          //   );
         }
       } catch (parseError) {
         console.error(`[${chainId}] Error parsing log:`, parseError);
