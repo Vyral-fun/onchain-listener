@@ -14,9 +14,7 @@ export async function processBlock(
   fromBlock: number,
   toBlock: number
 ) {
-  const { depositRpcUrl, escrowContract, abi } = await getEcosystemDetails(
-    chainId
-  );
+  const { depositRpcUrl, escrowContract, abi } = getEcosystemDetails(chainId);
 
   const iface = new ethers.Interface(abi);
   const httpProvider = new ethers.JsonRpcProvider(depositRpcUrl);
