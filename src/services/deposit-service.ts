@@ -12,9 +12,9 @@ import {
 } from "@/utils/constants";
 import { handleYapRequestCreatedQueue } from "./queue";
 
-const decimalsCache = new Map<string, number>();
+export const decimalsCache = new Map<string, number>();
 
-type ERC20 = {
+export type ERC20 = {
   decimals(): Promise<number>;
 };
 
@@ -109,11 +109,11 @@ async function startPolling(listener: NetworkContractListener) {
 
       const batchSize =
         blocksBehind > 1000
-          ? 2000
+          ? 100
           : blocksBehind > 500
-          ? 1000
-          : blocksBehind > 200
-          ? 500
+          ? 50
+          : blocksBehind > 50
+          ? 30
           : blocksBehind > 50
           ? 20
           : blocksBehind > 10
@@ -270,9 +270,9 @@ export async function updateNetworkContractListener(
 ): Promise<NetworkContractListener> {
   const listener = runtimeNetworkListeners[chainId];
 
-  if (listener?.contractAddress === contractAddress) {
-    return listener;
-  }
+  // if (listener?.contractAddress === contractAddress) {
+  //   return listener;
+  // }
 
   if (listener) {
     await listener.stop();
@@ -297,4 +297,19 @@ export async function updateNetworksListeners() {
   }
 
   startHealthCheck();
+}
+
+export async function resumeFrom(chainId: number, block: number) {
+  const listener = runtimeNetworkListeners[chainId];
+  if (!listener) {
+    console.error(
+      `[${chainId}] Cannot resume listener: Listener does not exist`
+    );
+    return;
+  }
+  listener.lastProcessedBlock = block;
+  listener.lastLoggedBlock = block;
+  listener.consecutiveErrors = 0;
+
+  console.log(`[${chainId}] Listener resumed from block ${block}`);
 }

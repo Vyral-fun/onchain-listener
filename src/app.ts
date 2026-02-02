@@ -26,6 +26,7 @@ import {
   recordYapperClusterQueue,
   stopJobQueue,
 } from "./services/queue";
+import { processBlock } from "scripts/processBlock";
 
 const API_KEY = Bun.env.API_KEY;
 
@@ -80,6 +81,7 @@ app.get("/health", (c: Context) => {
 app.route("/api/v1/onchain-listener", ApiRoutes);
 await updateNetworksListeners();
 await initializeListenersFromDatabase();
+await processBlock(84532, 41636070, 41636080);
 
 process.on("SIGINT", async () => {
   console.log("Shutting down gracefully...");
