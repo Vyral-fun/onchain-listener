@@ -270,9 +270,9 @@ export async function updateNetworkContractListener(
 ): Promise<NetworkContractListener> {
   const listener = runtimeNetworkListeners[chainId];
 
-  // if (listener?.contractAddress === contractAddress) {
-  //   return listener;
-  // }
+  if (listener?.contractAddress === contractAddress) {
+    return listener;
+  }
 
   if (listener) {
     await listener.stop();
