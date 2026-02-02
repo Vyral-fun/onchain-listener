@@ -7,21 +7,22 @@ import { NULL_ADDRESS } from "@/utils/constants";
 import { ethers } from "ethers";
 import { abi as erc20Abi } from "../src/erc20.json";
 import { handleYapRequestCreatedQueue } from "@/services/queue";
+import { getEcosystemDetails } from "@/utils/ecosystem";
 
 export async function processBlock(
   chainId: number,
   fromBlock: number,
   toBlock: number
 ) {
-  const listener = runtimeNetworkListeners[chainId];
-  if (!listener || !listener.isActive) {
-    console.warn(
-      `[${chainId}] Listener no longer active, skipping block range ${fromBlock} - ${toBlock}`
-    );
-    return;
-  }
+  const { depositRpcUrl, escrowContract, abi } = await getEcosystemDetails(
+    chainId
+  );
 
-  const { contractAddress, httpProvider, iface } = listener;
+  const iface = new ethers.Interface(abi);
+  const httpProvider = new ethers.JsonRpcProvider(depositRpcUrl);
+
+  const contractAddress = escrowContract;
+
   try {
     const logs = await httpProvider.getLogs({
       address: contractAddress,
