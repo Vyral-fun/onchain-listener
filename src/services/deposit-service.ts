@@ -28,15 +28,17 @@ export interface NetworkContractListener {
   lastLoggedBlock: number;
   lastPollTime: number;
   httpProvider: ethers.JsonRpcProvider;
+  backupProvider: ethers.JsonRpcProvider;
   iface: ethers.Interface;
   pollTimer: Timer | null;
   consecutiveErrors: number;
+  usingBackup: boolean;
   stop: () => Promise<void>;
 }
 
+const RPC_TIMEOUT = 30000; // 30 seconds
 const MAX_CONSECUTIVE_ERRORS = 5;
 const HEALTH_CHECK_INTERVAL = 60000; // 1 minute
-const POLL_INTERVAL = 8000;
 export const runtimeNetworkListeners: Record<number, NetworkContractListener> =
   {};
 
@@ -44,11 +46,16 @@ export async function createNetworkListener(
   chainId: number,
   contractAddress: string
 ): Promise<NetworkContractListener> {
-  const { depositRpcUrl, abi } = getEcosystemDetails(chainId);
+  const { depositRpcUrl, backupDepositRPC, abi } = getEcosystemDetails(chainId);
 
   const iface = new ethers.Interface(abi);
   const httpProvider = new ethers.JsonRpcProvider(depositRpcUrl);
-  const currentBlock = await httpProvider.getBlockNumber();
+  const backupProvider = new ethers.JsonRpcProvider(backupDepositRPC);
+  const currentBlock = await withTimeout(
+    httpProvider.getBlockNumber(),
+    RPC_TIMEOUT,
+    "getBlockNumber"
+  );
 
   const listener: NetworkContractListener = {
     abi,
@@ -62,7 +69,9 @@ export async function createNetworkListener(
     iface,
     pollTimer: null,
     httpProvider,
+    backupProvider,
     consecutiveErrors: 0,
+    usingBackup: false,
     async stop() {
       listener.isActive = false;
 
@@ -81,15 +90,33 @@ export async function createNetworkListener(
 }
 
 async function startPolling(listener: NetworkContractListener) {
-  const { chainId, contractAddress, httpProvider, iface } = listener;
+  const { chainId, contractAddress, iface } = listener;
+  const { networkPollInterval } = getEcosystemDetails(chainId);
   const poll = async () => {
     if (!listener.isActive) {
       if (listener.pollTimer) clearTimeout(listener.pollTimer);
       return;
     }
 
+    let nextPollDelay = networkPollInterval;
+
     try {
-      const currentBlock = await httpProvider.getBlockNumber();
+      let httpProvider = listener.httpProvider;
+
+      if (listener.consecutiveErrors >= 2 && !listener.usingBackup) {
+        console.warn(
+          `[${chainId}] Switching to backup provider due to consecutive errors (${listener.consecutiveErrors})`
+        );
+        httpProvider = listener.backupProvider;
+        listener.usingBackup = true;
+      }
+
+      const currentBlock = await withTimeout(
+        httpProvider.getBlockNumber(),
+        RPC_TIMEOUT,
+        "getBlockNumber"
+      );
+
       const fromBlock = listener.lastProcessedBlock + 1;
       const blocksBehind = currentBlock - listener.lastProcessedBlock;
 
@@ -104,40 +131,38 @@ async function startPolling(listener: NetworkContractListener) {
         listener.lastLoggedBlock = currentBlock;
       }
 
-      const dynamicInterval =
-        blocksBehind > 100 ? 1000 : blocksBehind > 50 ? 1500 : POLL_INTERVAL;
-
       const batchSize =
         blocksBehind > 1000
           ? 100
           : blocksBehind > 500
+          ? 80
+          : blocksBehind > 200
           ? 50
           : blocksBehind > 50
           ? 30
-          : blocksBehind > 50
-          ? 20
-          : blocksBehind > 10
-          ? 10
-          : MAX_BLOCKS_PER_QUERY;
+          : Math.min(blocksBehind, 20);
 
       const toBlock = Math.min(currentBlock, fromBlock + batchSize - 1);
 
       if (fromBlock > toBlock) {
-        listener.lastPollTime = Date.now();
-        listener.pollTimer = setTimeout(poll, dynamicInterval);
+        nextPollDelay = networkPollInterval;
         return;
       }
 
-      const logs = await httpProvider.getLogs({
-        address: contractAddress,
-        topics: [
-          ethers.id(
-            "YapRequestCreated(uint256,address,string,address,uint256,uint256)"
-          ),
-        ],
-        fromBlock,
-        toBlock,
-      });
+      const logs = await withTimeout(
+        httpProvider.getLogs({
+          address: contractAddress,
+          topics: [
+            ethers.id(
+              "YapRequestCreated(uint256,address,string,address,uint256,uint256)"
+            ),
+          ],
+          fromBlock,
+          toBlock,
+        }),
+        RPC_TIMEOUT,
+        `getLogs(${fromBlock}-${toBlock})`
+      );
 
       for (const log of logs) {
         try {
@@ -209,18 +234,35 @@ async function startPolling(listener: NetworkContractListener) {
       }
 
       listener.lastProcessedBlock = toBlock;
-      listener.lastPollTime = Date.now();
       listener.consecutiveErrors = 0;
+      listener.lastPollTime = Date.now();
+
+      if (listener.usingBackup) {
+        console.log(
+          `[${chainId}] Successfully polling with backup RPC. Will retry primary next time.`
+        );
+        listener.usingBackup = false;
+      }
 
       const remainingBlocks = currentBlock - toBlock;
-      const nextPollDelay = remainingBlocks > 10 ? 0 : dynamicInterval;
-      listener.pollTimer = setTimeout(poll, nextPollDelay);
+      const catchUpDelay = Math.min(networkPollInterval / 2, 500);
+      nextPollDelay = remainingBlocks > 10 ? catchUpDelay : networkPollInterval;
     } catch (error) {
       listener.consecutiveErrors++;
       console.error(
         `[${chainId}] Polling error (${listener.consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}):`,
         error
       );
+
+      if (
+        listener.usingBackup &&
+        listener.consecutiveErrors < MAX_CONSECUTIVE_ERRORS
+      ) {
+        console.warn(
+          `[${chainId}] Backup RPC failed, switching back to primary`
+        );
+        listener.usingBackup = false;
+      }
 
       if (listener.consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
         console.error(
@@ -229,8 +271,11 @@ async function startPolling(listener: NetworkContractListener) {
         await listener.stop();
         return;
       }
-
-      listener.pollTimer = setTimeout(poll, POLL_INTERVAL);
+      nextPollDelay = networkPollInterval;
+    } finally {
+      if (listener.isActive) {
+        listener.pollTimer = setTimeout(poll, nextPollDelay);
+      }
     }
   };
 
@@ -250,6 +295,7 @@ export function startHealthCheck() {
       console.log(`  - Active: ${listener.isActive}`);
       console.log(`  - Last processed block: ${listener.lastProcessedBlock}`);
       console.log(`  - Last poll: ${secondsSinceLastPoll} seconds ago`);
+      console.log(`  - Using backup RPC: ${listener.usingBackup}`);
       console.log(`  - Consecutive errors: ${listener.consecutiveErrors}`);
 
       const MAX_POLL_DELAY = 60000;
@@ -312,4 +358,20 @@ export async function resumeFrom(chainId: number, block: number) {
   listener.consecutiveErrors = 0;
 
   console.log(`[${chainId}] Listener resumed from block ${block}`);
+}
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  operation: string
+): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(
+        () => reject(new Error(`${operation} timeout after ${ms}ms`)),
+        ms
+      )
+    ),
+  ]);
 }
