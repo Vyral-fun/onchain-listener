@@ -492,3 +492,75 @@ export async function getJobOnchainRewards(c: Context) {
     return c.json({ error: "Internal server error" }, 500);
   }
 }
+
+export async function getJobOnchainMetrics(c: Context) {
+  const jobId = c.req.param("jobId");
+
+  const validatedParams = z
+    .string()
+    .length(21, {
+      message: "Job id must be 21 characters long",
+    })
+    .safeParse(jobId);
+
+  if (!validatedParams.success) {
+    return c.json({ error: validatedParams.error }, 400);
+  }
+
+  try {
+    const walletCount = sql<number>`COUNT(DISTINCT ${yappersDerivedAddressActivity.address}) FILTER (WHERE ${yappersDerivedAddressActivity.interacted} = true)`;
+    const volume = sql<string>`COALESCE(SUM(${yappersDerivedAddressActivity.value}) FILTER (WHERE ${yappersDerivedAddressActivity.interacted} = true), 0)`;
+
+    const stats = await db
+      .select({
+        walletCount,
+        volume,
+      })
+      .from(yappersDerivedAddressActivity)
+      .where(eq(yappersDerivedAddressActivity.jobId, jobId));
+
+    const dbEvents = await db
+      .select({
+        jobId: contractEvents.jobId,
+        chainId: contractEvents.chainId,
+        eventName: contractEvents.eventName,
+        sender: contractEvents.sender,
+        reciever: contractEvents.receiver,
+        contractAddress: contractEvents.contractAddress,
+        value: contractEvents.value,
+        transactionHash: contractEvents.transactionHash,
+        blockNumber: contractEvents.blockNumber,
+      })
+      .from(contractEvents)
+      .where(eq(contractEvents.jobId, jobId));
+
+    const uniqueEventsMap = new Map<string, (typeof dbEvents)[0]>();
+    let totalValue = 0n;
+
+    for (const ev of dbEvents) {
+      const uniqueKey = `${ev.sender?.toLowerCase()}-${ev.reciever?.toLowerCase()}-${
+        ev.transactionHash
+      }-${ev.blockNumber}`;
+
+      if (!uniqueEventsMap.has(uniqueKey)) {
+        uniqueEventsMap.set(uniqueKey, ev);
+        if (ev.value) {
+          totalValue += BigInt(ev.value);
+        }
+      }
+    }
+
+    const uniqueDbEvents = Array.from(uniqueEventsMap.values());
+
+    return c.json({
+      jobId,
+      walletCount: stats[0]?.walletCount || 0,
+      volume: stats[0]?.volume || "0",
+      totalTransactions: uniqueDbEvents.length,
+      totalValue: totalValue.toString(),
+    });
+  } catch (error) {
+    console.error("Yap.onchainListener.getOnchainJobMetric.error: ", error);
+    return c.json({ error: "Internal server error" }, 500);
+  }
+}
