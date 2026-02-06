@@ -494,32 +494,43 @@ export async function getJobOnchainRewards(c: Context) {
 }
 
 export async function getJobOnchainMetrics(c: Context) {
-  const jobId = c.req.param("jobId");
+  const jobIdParam = c.req.query("jobId");
 
-  const validatedParams = z
-    .string()
-    .length(21, {
-      message: "Job id must be 21 characters long",
-    })
-    .safeParse(jobId);
+  let jobId: string | undefined;
 
-  if (!validatedParams.success) {
-    return c.json({ error: validatedParams.error }, 400);
+  if (jobIdParam) {
+    const validatedParams = z
+      .string()
+      .length(21, {
+        message: "Job id must be 21 characters long",
+      })
+      .safeParse(jobIdParam);
+
+    if (!validatedParams.success) {
+      return c.json({ error: validatedParams.error }, 400);
+    }
+
+    jobId = validatedParams.data;
   }
 
   try {
     const walletCount = sql<number>`COUNT(DISTINCT ${yappersDerivedAddressActivity.address}) FILTER (WHERE ${yappersDerivedAddressActivity.interacted} = true)`;
     const volume = sql<string>`COALESCE(SUM(${yappersDerivedAddressActivity.value}) FILTER (WHERE ${yappersDerivedAddressActivity.interacted} = true), 0)`;
 
-    const stats = await db
+    const statsQuery = db
       .select({
         walletCount,
         volume,
       })
-      .from(yappersDerivedAddressActivity)
-      .where(eq(yappersDerivedAddressActivity.jobId, jobId));
+      .from(yappersDerivedAddressActivity);
 
-    const dbEvents = await db
+    if (jobId) {
+      statsQuery.where(eq(yappersDerivedAddressActivity.jobId, jobId));
+    }
+
+    const stats = await statsQuery;
+
+    const eventsQuery = db
       .select({
         jobId: contractEvents.jobId,
         chainId: contractEvents.chainId,
@@ -531,8 +542,13 @@ export async function getJobOnchainMetrics(c: Context) {
         transactionHash: contractEvents.transactionHash,
         blockNumber: contractEvents.blockNumber,
       })
-      .from(contractEvents)
-      .where(eq(contractEvents.jobId, jobId));
+      .from(contractEvents);
+
+    if (jobId) {
+      eventsQuery.where(eq(contractEvents.jobId, jobId));
+    }
+
+    const dbEvents = await eventsQuery;
 
     const uniqueEventsMap = new Map<string, (typeof dbEvents)[0]>();
     let totalValue = 0n;
@@ -553,7 +569,7 @@ export async function getJobOnchainMetrics(c: Context) {
     const uniqueDbEvents = Array.from(uniqueEventsMap.values());
 
     return c.json({
-      jobId,
+      jobId: jobId || "global",
       walletCount: stats[0]?.walletCount || 0,
       volume: stats[0]?.volume || "0",
       totalTransactions: uniqueDbEvents.length,
