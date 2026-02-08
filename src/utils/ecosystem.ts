@@ -39,6 +39,10 @@ export function getAlchemyInstance(chainId: number): Alchemy {
       throw new Error(`No Alchemy configuration found for chainId ${chainId}`);
     }
 
+    if (!details.network || !details.network === null) {
+      throw new Error(`No Alchemy network found for chainId ${chainId}`);
+    }
+
     alchemyCache[chainId] = new Alchemy({
       apiKey: details.apiKey,
       network: details.network,

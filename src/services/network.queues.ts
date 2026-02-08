@@ -1,6 +1,5 @@
 import connection from "@/redis";
 import { Queue, Worker } from "bullmq";
-import { runtimeNetworkListeners } from "./deposit-service";
 import { processBlock } from "./listener-service";
 import {
   getEcosystemDetails,
