@@ -488,7 +488,9 @@ export async function processEVMBlock(
     const tx = block.transactions[txIndex] as Transaction;
 
     if (!tx) {
-      console.warn(`Tx index ${txIndex} missing in block ${blockNumber}`);
+      console.warn(
+        `[${listener.chainId}] Tx index ${txIndex} missing in block ${blockNumber}`
+      );
       continue;
     }
 
