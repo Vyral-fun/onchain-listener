@@ -251,7 +251,12 @@ async function startPolling(listener: NetworkContractListener) {
       listener.consecutiveErrors++;
       console.error(
         `[${chainId}] Polling error (${listener.consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}):`,
-        error
+        error,
+        {
+          currentBlock: listener.lastProcessedBlock,
+          errorDetails: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        }
       );
 
       if (
