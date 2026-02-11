@@ -101,15 +101,9 @@ async function startPolling(listener: NetworkContractListener) {
     let nextPollDelay = networkPollInterval;
 
     try {
-      let httpProvider = listener.httpProvider;
-
-      if (listener.consecutiveErrors >= 2 && !listener.usingBackup) {
-        console.warn(
-          `[${chainId}] Switching to backup provider due to consecutive errors (${listener.consecutiveErrors})`
-        );
-        httpProvider = listener.backupProvider;
-        listener.usingBackup = true;
-      }
+      let httpProvider = listener.usingBackup
+        ? listener.backupProvider
+        : listener.httpProvider;
 
       const currentBlock = await withTimeout(
         httpProvider.getBlockNumber(),
@@ -237,13 +231,6 @@ async function startPolling(listener: NetworkContractListener) {
       listener.consecutiveErrors = 0;
       listener.lastPollTime = Date.now();
 
-      if (listener.usingBackup) {
-        console.log(
-          `[${chainId}] Successfully polling with backup RPC. Will retry primary next time.`
-        );
-        listener.usingBackup = false;
-      }
-
       const remainingBlocks = currentBlock - toBlock;
       const catchUpDelay = Math.min(networkPollInterval / 2, 500);
       nextPollDelay = remainingBlocks > 10 ? catchUpDelay : networkPollInterval;
@@ -259,14 +246,13 @@ async function startPolling(listener: NetworkContractListener) {
         }
       );
 
-      if (
-        listener.usingBackup &&
-        listener.consecutiveErrors < MAX_CONSECUTIVE_ERRORS
-      ) {
+      if (listener.consecutiveErrors > 1) {
+        listener.usingBackup = !listener.usingBackup;
         console.warn(
-          `[${chainId}] Backup RPC failed, switching back to primary`
+          `[${chainId}] Switching to ${
+            listener.usingBackup ? "backup" : "primary"
+          } RPC due to error`
         );
-        listener.usingBackup = false;
       }
 
       if (listener.consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
