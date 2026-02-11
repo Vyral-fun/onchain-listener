@@ -369,6 +369,27 @@ export async function processBlock(
   currentBlock: number,
   blockNumber: number
 ) {
+  const listener = networkListeners.get(chainId);
+  if (!listener) {
+    console.warn(
+      `[${chainId}] No active listener found for processing block ${blockNumber}`
+    );
+    return;
+  }
+
+  const ecosystem = getEcosystemDetails(chainId);
+  if (ecosystem?.chainId === 295 || ecosystem?.chainId === 296) {
+    await processHederaBlock(chainId, currentBlock, blockNumber);
+  } else {
+    await processEVMBlock(chainId, currentBlock, blockNumber);
+  }
+}
+
+export async function processEVMBlock(
+  chainId: number,
+  currentBlock: number,
+  blockNumber: number
+) {
   let listener = networkListeners.get(chainId);
   if (!listener || !listener.isActive) {
     console.warn(
@@ -467,7 +488,128 @@ export async function processBlock(
     const tx = block.transactions[txIndex] as Transaction;
 
     if (!tx) {
-      console.warn(`Tx index ${txIndex} missing in block ${blockNumber}`);
+      console.warn(
+        `[${listener.chainId}] Tx index ${txIndex} missing in block ${blockNumber}`
+      );
+      continue;
+    }
+
+    const normalizedEvent = await normalizeEvent(parsedLog, log, tx);
+    logEvent(normalizedEvent);
+    await routeEventToJobs(normalizedEvent, listener.chainId);
+  }
+}
+
+export async function processHederaBlock(
+  chainId: number,
+  currentBlock: number,
+  blockNumber: number
+) {
+  let listener = networkListeners.get(chainId);
+  if (!listener || !listener.isActive) {
+    console.warn(
+      `[${chainId}] No listener found for processing block ${blockNumber}`
+    );
+    return;
+  }
+
+  const contractAddresses = Array.from(listener.contracts.keys());
+  const publicClient: PublicClient = listener.client;
+  const filter: any = {
+    address: contractAddresses,
+    fromBlock: numberToHex(blockNumber),
+    toBlock: numberToHex(blockNumber),
+  };
+  console.log(
+    `[${listener.chainId}] Processing block ${blockNumber} with current ${currentBlock}`
+  );
+
+  let blockLogs: any[] = [];
+  try {
+    blockLogs = (await publicClient.getLogs(filter)) ?? [];
+  } catch (err: any) {
+    console.warn(`[${chainId}] getLogs failed:`, err.message);
+    return;
+  }
+
+  if (!Array.isArray(blockLogs)) {
+    console.warn(
+      `[${chainId}] getLogs returned non-array for ${blockNumber}: ${typeof blockLogs}`
+    );
+    return;
+  }
+
+  if (blockLogs.length === 0) return;
+
+  if (!Array.isArray(blockLogs)) {
+    console.warn(
+      `[${
+        listener.chainId
+      }] getLogs returned non-array for ${blockNumber}: ${typeof blockLogs}`
+    );
+    blockLogs = [];
+  }
+
+  const txCache = new Map<string, Transaction>();
+
+  for (const log of blockLogs) {
+    const normalizedAddress = log.address.toLowerCase();
+    const contractSub = listener.contracts.get(normalizedAddress);
+
+    if (!contractSub) {
+      console.warn(
+        `[${listener.chainId}] Log for untracked contract ${normalizedAddress} at block ${log.blockNumber}`
+      );
+      continue;
+    }
+
+    let parsedLog: any;
+    try {
+      parsedLog = contractSub.iface.parseLog({
+        topics: log.topics,
+        data: log.data,
+      });
+
+      if (!parsedLog) continue;
+    } catch (err) {
+      console.warn(
+        `[${listener.chainId}] Unable to parse log for contract ${normalizedAddress} at block ${log.blockNumber}`
+      );
+      continue;
+    }
+
+    const eventName = parsedLog.fragment?.name || parsedLog.name;
+    if (
+      !contractSub.eventsBeingListened.has("*") &&
+      !contractSub.eventsBeingListened.has(eventName)
+    ) {
+      continue;
+    }
+
+    const txHash = log.transactionHash?.toLowerCase();
+    if (!txHash) continue;
+
+    let tx = txCache.get(txHash);
+
+    if (!tx) {
+      try {
+        tx = await publicClient.getTransaction({
+          hash: log.transactionHash as `0x${string}`,
+        });
+
+        if (tx) txCache.set(txHash, tx);
+      } catch (err) {
+        console.warn(
+          `[${listener.chainId}] Failed to fetch tx ${log.transactionHash} for log in block ${blockNumber}`
+        );
+        continue;
+      }
+    }
+
+    if (!tx) {
+      console.warn(
+        `[${listener.chainId}] Tx ${log.transactionHash} not found for log in block ${blockNumber}`
+      );
       continue;
     }
 
@@ -707,6 +849,7 @@ async function normalizeEvent(
 function logEvent(event: NormalizedEvent) {
   console.log("  Event Name:", event.name);
   console.log("  Contract Address:", event.address);
+  console.log("Transaction Hash:", event.transactionHash);
   if (event.sender) console.log("  Sender:", event.sender);
   if (event.receiver) console.log("  Receiver:", event.receiver);
   if (event.value) console.log("  Value:", event.value);

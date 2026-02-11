@@ -1,6 +1,5 @@
 import connection from "@/redis";
 import { Queue, Worker } from "bullmq";
-import { runtimeNetworkListeners } from "./deposit-service";
 import { processBlock } from "./listener-service";
 import {
   getEcosystemDetails,
@@ -51,14 +50,6 @@ export function getWorkerForChain(chainId: number): Worker {
       `processBlock-chain-${chainId}`,
       async (job) => {
         const { chainId, currentBlock, blockNumber } = job.data;
-
-        const listener = runtimeNetworkListeners[chainId];
-        if (!listener || !listener.isActive) {
-          console.warn(
-            `[${chainId}] Listener no longer active, skipping block ${blockNumber}`
-          );
-          return;
-        }
 
         await processBlock(chainId, currentBlock, blockNumber);
       },
