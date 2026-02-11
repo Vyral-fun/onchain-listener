@@ -26,6 +26,7 @@ import {
   recordYapperClusterQueue,
   stopJobQueue,
 } from "./services/queue";
+import { processBlock } from "scripts/processBlock";
 
 const API_KEY = Bun.env.API_KEY;
 

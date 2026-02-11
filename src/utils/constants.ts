@@ -34,6 +34,7 @@ export const ECOSYSTEM_DETAILS = [
     apiKey: Bun.env.ALCHEMY_BASE_SEPOLIA_KEY,
     rpcUrl: Bun.env.BASE_SEPOLIA_PROVIDER_URL,
     depositRpcUrl: Bun.env.BASE_DEPOSIT_RPC_URL,
+    backupDepositRPC: Bun.env.BASE_DEPOSIT_BACKUP_RPC_URL,
     networkPollInterval: 1000, // 1 second
     env: "development",
     forActiveListener: true,
@@ -48,6 +49,7 @@ export const ECOSYSTEM_DETAILS = [
     apiKey: Bun.env.ALCHEMY_BASE_MAINNET_KEY,
     rpcUrl: Bun.env.BASE_MAINNET_PROVIDER_URL,
     depositRpcUrl: Bun.env.BASE_DEPOSIT_RPC_URL,
+    backupDepositRPC: Bun.env.BASE_DEPOSIT_BACKUP_RPC_URL,
     networkPollInterval: 1000, // 1 second
     env: "prod",
     forActiveListener: true,
@@ -62,6 +64,7 @@ export const ECOSYSTEM_DETAILS = [
     apiKey: Bun.env.ALCHEMY_MONAD_TESTNET_KEY,
     rpcUrl: Bun.env.MONAD_PROVIDER_URL,
     depositRpcUrl: Bun.env.MONAD_DEPOSIT_RPC_URL,
+    backupDepositRPC: Bun.env.MONAD_DEPOSIT_BACKUP_RPC_URL,
     networkPollInterval: 1000, // 1 second
     env: "development",
     forActiveListener: true,
@@ -76,6 +79,7 @@ export const ECOSYSTEM_DETAILS = [
     apiKey: Bun.env.ALCHEMY_MONAD_TESTNET_KEY,
     rpcUrl: Bun.env.MONAD_PROVIDER_URL,
     depositRpcUrl: Bun.env.MONAD_DEPOSIT_RPC_URL,
+    backupDepositRPC: Bun.env.MONAD_DEPOSIT_BACKUP_RPC_URL,
     networkPollInterval: 1000, // 1 second
     env: "prod",
     forActiveListener: false,
@@ -90,6 +94,7 @@ export const ECOSYSTEM_DETAILS = [
     apiKey: Bun.env.ALCHEMY_API_KEY,
     rpcUrl: Bun.env.ETHEREUM_PROVIDER_URL,
     depositRpcUrl: Bun.env.ETHEREUM_PROVIDER_URL,
+    backupDepositRPC: Bun.env.ETHEREUM_PROVIDER_URL,
     env: "prod",
     networkPollInterval: 12000, // 12 seconds
     forActiveListener: false,
@@ -104,6 +109,7 @@ export const ECOSYSTEM_DETAILS = [
     apiKey: Bun.env.ALCHEMY_API_KEY,
     rpcUrl: Bun.env.ETHEREUM_SEPOLIA_PROVIDER_URL,
     depositRpcUrl: Bun.env.ETHEREUM_SEPOLIA_PROVIDER_URL,
+    backupDepositRPC: Bun.env.ETHEREUM_PROVIDER_URL,
     networkPollInterval: 12000, // 12 seconds
     env: "development",
     forActiveListener: false,
@@ -118,6 +124,7 @@ export const ECOSYSTEM_DETAILS = [
     apiKey: Bun.env.ALCHEMY_API_KEY,
     rpcUrl: Bun.env.OPT_MAINNET_PROVIDER_URL,
     depositRpcUrl: Bun.env.OPT_MAINNET_PROVIDER_URL,
+    backupDepositRPC: Bun.env.OPT_MAINNET_PROVIDER_URL,
     networkPollInterval: 2000, // 2 seconds
     env: "prod",
     forActiveListener: false,
@@ -132,6 +139,7 @@ export const ECOSYSTEM_DETAILS = [
     apiKey: Bun.env.ALCHEMY_API_KEY,
     rpcUrl: Bun.env.OPT_SEPOLIA_PROVIDER_URL,
     depositRpcUrl: Bun.env.OPT_SEPOLIA_PROVIDER_URL,
+    backupDepositRPC: Bun.env.OPT_SEPOLIA_PROVIDER_URL,
     networkPollInterval: 2000, // 2 seconds
     env: "development",
     forActiveListener: false,
@@ -146,6 +154,7 @@ export const ECOSYSTEM_DETAILS = [
     apiKey: Bun.env.ALCHEMY_API_KEY,
     rpcUrl: Bun.env.ARB_MAINNET_PROVIDER_URL,
     depositRpcUrl: Bun.env.ARB_MAINNET_PROVIDER_URL,
+    backupDepositRPC: Bun.env.ARB_MAINNET_PROVIDER_URL,
     networkPollInterval: 250, // 250 ms (very fast blocks)
     env: "prod",
     forActiveListener: false,
@@ -160,6 +169,7 @@ export const ECOSYSTEM_DETAILS = [
     apiKey: Bun.env.ALCHEMY_API_KEY,
     rpcUrl: Bun.env.ARB_SEPOLIA_PROVIDER_URL,
     depositRpcUrl: Bun.env.ARB_SEPOLIA_PROVIDER_URL,
+    backupDepositRPC: Bun.env.ARB_SEPOLIA_PROVIDER_URL,
     networkPollInterval: 500, // 500 ms
     env: "development",
     forActiveListener: false,
@@ -174,6 +184,7 @@ export const ECOSYSTEM_DETAILS = [
     apiKey: Bun.env.ALCHEMY_API_KEY,
     rpcUrl: Bun.env.BNB_MAINNET_PROVIDER_URL,
     depositRpcUrl: Bun.env.BNB_MAINNET_PROVIDER_URL,
+    backupDepositRPC: Bun.env.BNB_MAINNET_PROVIDER_URL,
     networkPollInterval: 3000, // 3 seconds
     env: "prod",
     forActiveListener: false,
@@ -188,6 +199,7 @@ export const ECOSYSTEM_DETAILS = [
     apiKey: Bun.env.ALCHEMY_API_KEY,
     rpcUrl: Bun.env.BNB_TESTNET_PROVIDER_URL,
     depositRpcUrl: Bun.env.BNB_TESTNET_PROVIDER_URL,
+    backupDepositRPC: Bun.env.BNB_TESTNET_PROVIDER_URL,
     networkPollInterval: 3000, // 3 seconds
     env: "development",
     forActiveListener: false,
@@ -202,6 +214,7 @@ export const ECOSYSTEM_DETAILS = [
     apiKey: Bun.env.ALCHEMY_API_KEY,
     rpcUrl: Bun.env.POLYGON_AMOY_PROVIDER_URL,
     depositRpcUrl: Bun.env.POLYGON_AMOY_PROVIDER_URL,
+    backupDepositRPC: Bun.env.POLYGON_AMOY_PROVIDER_URL,
     networkPollInterval: 3000, // 3 seconds
     env: "development",
     forActiveListener: false,
@@ -216,6 +229,7 @@ export const ECOSYSTEM_DETAILS = [
     apiKey: Bun.env.ALCHEMY_API_KEY,
     rpcUrl: Bun.env.POLYGON_MAINNET_PROVIDER_URL,
     depositRpcUrl: Bun.env.POLYGON_MAINNET_PROVIDER_URL,
+    backupDepositRPC: Bun.env.POLYGON_MAINNET_PROVIDER_URL,
     networkPollInterval: 3000, // 3 seconds
     env: "development",
     forActiveListener: false,
