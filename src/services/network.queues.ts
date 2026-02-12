@@ -52,14 +52,6 @@ export function getWorkerForChain(chainId: number): Worker {
       async (job) => {
         const { chainId, currentBlock, blockNumber } = job.data;
 
-        const listener = runtimeNetworkListeners[chainId];
-        if (!listener || !listener.isActive) {
-          console.warn(
-            `[${chainId}] Listener no longer active, skipping block ${blockNumber}`
-          );
-          return;
-        }
-
         await processBlock(chainId, currentBlock, blockNumber);
       },
       {
