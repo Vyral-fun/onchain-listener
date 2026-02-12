@@ -22,8 +22,11 @@ const INCOM_RWA_POOLS = new Set(
   ].map((addr) => addr.toLowerCase())
 );
 
+// const INCOM_RWA_TOKEN =
+//   "0x833f973406E07830d494cBe5FaBBc3AE9c750c1F".toLowerCase();
+
 const INCOM_RWA_TOKEN =
-  "0x833f973406E07830d494cBe5FaBBc3AE9c750c1F".toLowerCase();
+  "0xf1966A1d1a6098c80341f38DCE1a54F8D67e8c87".toLowerCase();
 
 export interface ContractJobEvents {
   jobId: string;
@@ -48,7 +51,11 @@ export interface Job {
 
 function shouldIncludeEvent(contract: string, receiver: string): boolean {
   if (contract === INCOM_RWA_TOKEN) {
-    return !!receiver && INCOM_RWA_POOLS.has(receiver);
+    let shouldinclude = !!receiver && INCOM_RWA_POOLS.has(receiver);
+    console.log(
+      `Contract is token contract and reciever is pool: ${shouldinclude}`
+    );
+    return shouldinclude;
   }
 
   return true;
