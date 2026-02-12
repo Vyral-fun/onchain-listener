@@ -11,6 +11,7 @@ import {
   polygon,
 } from "viem/chains";
 
+export const ALERT_COOLDOWN_MS = 30 * 60 * 1000;
 export const BATCH_SIZE = 500;
 export const MAX_BLOCKS_PER_QUERY = 3;
 const isProd = Bun.env.NODE_ENV === "production";
@@ -235,3 +236,22 @@ export const ECOSYSTEM_DETAILS = [
     abi: escrowV2Abi,
   },
 ];
+
+export const CHAIN_ALERT_THRESHOLDS: Record<number, number> = {
+  1: 100, // Ethereum mainnet - 12s blocks (~20 min lag)
+  137: 200, // Polygon mainnet - 2s blocks (~6.7 min lag)
+  56: 150, // BSC mainnet - 3s blocks (~7.5 min lag)
+  42161: 500, // Arbitrum mainnet - 0.25s blocks (~2 min lag)
+  10: 300, // Optimism mainnet - 2s blocks (~10 min lag)
+  8453: 300, // Base mainnet - 2s blocks (~10 min lag)
+  143: 500, // Monad mainnet - 1s blocks (~8.3 min lag)
+
+  // Testnets
+  11155111: 100, // Ethereum Sepolia - 12s blocks
+  80002: 200, // Polygon Amoy - 2s blocks
+  97: 150, // BSC Testnet - 3s blocks
+  421614: 500, // Arbitrum Sepolia - 0.5s blocks
+  11155420: 300, // Optimism Sepolia - 2s blocks
+  84532: 300, // Base Sepolia - 2s blocks
+  10143: 500,
+};

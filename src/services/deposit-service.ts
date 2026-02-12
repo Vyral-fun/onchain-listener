@@ -11,6 +11,11 @@ import {
   NULL_ADDRESS,
 } from "@/utils/constants";
 import { handleYapRequestCreatedQueue } from "./queue";
+import {
+  getAlertThreshold,
+  sendDepositAlert,
+  shouldSendDepositAlert,
+} from "./alert";
 
 export const decimalsCache = new Map<string, number>();
 
@@ -33,6 +38,7 @@ export interface NetworkContractListener {
   pollTimer: Timer | null;
   consecutiveErrors: number;
   usingBackup: boolean;
+  lastAlertSentAt: number;
   stop: () => Promise<void>;
 }
 
@@ -72,6 +78,7 @@ export async function createNetworkListener(
     backupProvider,
     consecutiveErrors: 0,
     usingBackup: false,
+    lastAlertSentAt: 0,
     async stop() {
       listener.isActive = false;
 
@@ -92,6 +99,7 @@ export async function createNetworkListener(
 async function startPolling(listener: NetworkContractListener) {
   const { chainId, contractAddress, iface } = listener;
   const { networkPollInterval } = getEcosystemDetails(chainId);
+  const alertThreshold = getAlertThreshold(chainId);
   const poll = async () => {
     if (!listener.isActive) {
       if (listener.pollTimer) clearTimeout(listener.pollTimer);
@@ -123,6 +131,25 @@ async function startPolling(listener: NetworkContractListener) {
         );
 
         listener.lastLoggedBlock = currentBlock;
+      }
+
+      if (blocksBehind > alertThreshold) {
+        console.warn(
+          `[${chainId}] Deposit listener falling behind! ${blocksBehind} blocks behind`
+        );
+
+        if (shouldSendDepositAlert(listener)) {
+          await sendDepositAlert(
+            chainId,
+            `Deposit listener falling behind!\n` +
+              `Blocks behind: ${blocksBehind}\n` +
+              `Current block: ${currentBlock}\n` +
+              `Last processed: ${listener.lastProcessedBlock}\n` +
+              `Threshold: ${alertThreshold}\n` +
+              `Using: ${listener.usingBackup ? "backup" : "primary"} RPC`
+          );
+          listener.lastAlertSentAt = Date.now();
+        }
       }
 
       const batchSize =
@@ -253,11 +280,25 @@ async function startPolling(listener: NetworkContractListener) {
             listener.usingBackup ? "backup" : "primary"
           } RPC due to error`
         );
+
+        await sendDepositAlert(
+          chainId,
+          `Switched to ${listener.usingBackup ? "backup" : "primary"} RPC\n` +
+            `Errors: ${listener.consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}`
+        );
       }
 
       if (listener.consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
         console.error(
           `[${chainId}] Too many consecutive errors. Stopping listener. Manual intervention required.`
+        );
+
+        await sendDepositAlert(
+          chainId,
+          `CRITICAL: Deposit listener stopped!\n` +
+            `Consecutive errors: ${listener.consecutiveErrors}\n` +
+            `Last block: ${listener.lastProcessedBlock}\n` +
+            `Manual intervention required!`
         );
         await listener.stop();
         return;
