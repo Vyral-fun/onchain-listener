@@ -48,9 +48,6 @@ export async function createNetworkListener(
 ): Promise<NetworkContractListener> {
   const { depositRpcUrl, backupDepositRPC, abi } = getEcosystemDetails(chainId);
 
-  console.log(depositRpcUrl);
-  console.log(backupDepositRPC);
-
   const iface = new ethers.Interface(abi);
   const httpProvider = new ethers.JsonRpcProvider(depositRpcUrl);
   const backupProvider = new ethers.JsonRpcProvider(backupDepositRPC);
