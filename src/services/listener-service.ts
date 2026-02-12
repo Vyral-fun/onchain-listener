@@ -22,6 +22,7 @@ import {
   initializeAllChainQueues,
   shutdownQueueForChain,
 } from "./network.queues";
+import { sendNetworkAlert, getAlertThreshold, shouldSendAlert } from "./alert";
 
 export interface JobEventSubscription {
   jobId: string;
@@ -45,6 +46,7 @@ export interface NetworkListener {
   lastLoggedBlock: number;
   pollTimer: Timer | null;
   isActive: boolean;
+  lastAlertSentAt: number;
   stop: () => Promise<void>;
 }
 
@@ -227,6 +229,7 @@ async function createNetworkListener(
     lastLoggedBlock: lastBlockProcessed,
     pollTimer: null,
     isActive: true,
+    lastAlertSentAt: 0,
     async stop() {
       listener.isActive = false;
 
@@ -284,6 +287,7 @@ function startNetworkPolling(listener: NetworkListener) {
   const { chainId, client } = listener;
   const pollInterval =
     getEcosystemDetails(chainId).networkPollInterval || POLL_INTERVAL;
+  const alertThreshold = getAlertThreshold(chainId);
 
   listener.pollTimer = setInterval(async () => {
     if (!listener.isActive || listener.contracts.size === 0) {
@@ -316,12 +320,21 @@ function startNetworkPolling(listener: NetworkListener) {
     const blocksBehind = currentBlock - listener.lastProcessedBlock;
     const blocksToQueue = Math.min(MAX_BLOCKS_PER_QUERY, blocksBehind);
 
-    if (blocksBehind > 50) {
+    if (blocksBehind > alertThreshold) {
       console.warn(
         `[${chainId}] Falling behind! ${blocksBehind} blocks behind current block ${currentBlock}`
       );
-
-      // TODO: We will implement alert here but we have to change the amount of blocks to be chain specific
+      if (shouldSendAlert(listener)) {
+        await sendNetworkAlert(
+          `${[chainId]}:` +
+            `Listener falling behind!\n` +
+            `Blocks behind: ${blocksBehind}\n` +
+            `Current block: ${currentBlock}\n` +
+            `Last processed: ${listener.lastProcessedBlock}\n` +
+            `Threshold: ${alertThreshold}`
+        );
+        listener.lastAlertSentAt = Date.now();
+      }
     }
 
     const queuePromises = [];
@@ -815,6 +828,11 @@ export async function initializeListenersFromDatabase() {
           `Initialized listener for chain ${chainId} with ${listeners.length} contracts.`
         );
       } catch (error) {
+        await sendNetworkAlert(
+          `${[chainId]}:` +
+            `Failed to initialize listener\n` +
+            `Error: ${error instanceof Error ? error.message : String(error)}`
+        );
         console.error(`Error initializing chain ${chainId}:`, error);
       }
     }

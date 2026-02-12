@@ -8,6 +8,7 @@ import {
 } from "./job-service";
 import { processBlock } from "./listener-service";
 import { handleYapRequestCreated } from "@/api/jobs/jobs";
+import { sendAlert } from "./alert";
 
 export const recordYapperClusterQueue = new Queue("recordYapperClusterQueue", {
   connection,
@@ -43,6 +44,18 @@ export const handleYapRequestCreatedQueue = new Queue(
 );
 export const leaderboardUpdateQueue = new Queue("leaderboardUpdateQueue", {
   connection,
+});
+export const sendAlertQueue = new Queue("sendAlertQueue", {
+  connection,
+  defaultJobOptions: {
+    attempts: 5,
+    backoff: {
+      type: "exponential",
+      delay: 2000,
+    },
+    removeOnComplete: true,
+    removeOnFail: 50,
+  },
 });
 
 export const recordYapperClusterWorker = new Worker<{
@@ -90,6 +103,18 @@ export const stopJobWorker = new Worker(
     console.log(`stopJobWorker job ---- ${jobId}`);
   },
   { connection }
+);
+
+export const sendAlertWorker = new Worker(
+  "sendAlertQueue",
+  async (job) => {
+    const { message } = job.data;
+    await sendAlert(message);
+  },
+  {
+    connection,
+    concurrency: 3,
+  }
 );
 
 export const leaderboardUpdateWorker = new Worker(
@@ -165,6 +190,16 @@ stopJobWorker.on("failed", (job, err) =>
 stopJobWorker.on("stalled", (job) =>
   console.error(`stopJobWorker job ${job} stalled:`)
 );
+
+sendAlertWorker.on("failed", (job, err) => {
+  console.error("Alert job failed:", {
+    jobId: job?.id,
+    error: err.message,
+  });
+});
+sendAlertWorker.on("stalled", (job) => {
+  console.error(`Alert job stalled: ${job}`);
+});
 
 leaderboardUpdateWorker.on("failed", (job, err) =>
   console.error(`leaderboardUpdateWorker job ${job?.id} failed:`, err)

@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@coinbase/onchainkit": "^0.38.19",
+    "@types/node-telegram-bot-api": "^0.64.13",
     "@types/ws": "^8.18.1",
     "alchemy-sdk": "^3.6.3",
     "bullmq": "^5.58.5",
@@ -25,6 +26,7 @@
     "hono": "^4.9.5",
     "ioredis": "^5.7.0",
     "nanoid": "^5.1.5",
+    "node-telegram-bot-api": "^0.67.0",
     "pg": "^8.16.3",
     "postgres": "^3.4.7",
     "viem": "^2.44.4",
