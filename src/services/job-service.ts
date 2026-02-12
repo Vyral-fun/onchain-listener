@@ -52,9 +52,6 @@ export interface Job {
 function shouldIncludeEvent(contract: string, receiver: string): boolean {
   if (contract === INCOM_RWA_TOKEN) {
     let shouldinclude = !!receiver && INCOM_RWA_POOLS.has(receiver);
-    console.log(
-      `Contract is token contract and reciever is pool: ${shouldinclude}`
-    );
     return shouldinclude;
   }
 
