@@ -104,38 +104,38 @@ export async function recordJobYapsActivity(yaps: Yap[], jobId: string) {
     ) {
       uniqueEventsMap.set(uniqueKey, ev);
     }
+  }
 
-    const uniqueDbEvents = Array.from(uniqueEventsMap.values());
+  const uniqueDbEvents = Array.from(uniqueEventsMap.values());
 
-    const jobEvents: ContractJobEvents[] = uniqueDbEvents.map((ev) => ({
-      jobId: ev.jobId,
-      chainId: ev.chainId,
-      eventName: ev.eventName ?? "",
-      sender: ev.sender ?? "",
-      reciever: ev.reciever ?? "",
-      contractAddress: ev.contractAddress ?? "",
-      value: ev.value?.toString() ?? "0",
-      transactionHash: ev.transactionHash ?? "",
-      blockNumber: ev.blockNumber?.toString() ?? "0",
-    }));
+  const jobEvents: ContractJobEvents[] = uniqueDbEvents.map((ev) => ({
+    jobId: ev.jobId,
+    chainId: ev.chainId,
+    eventName: ev.eventName ?? "",
+    sender: ev.sender ?? "",
+    reciever: ev.reciever ?? "",
+    contractAddress: ev.contractAddress ?? "",
+    value: ev.value?.toString() ?? "0",
+    transactionHash: ev.transactionHash ?? "",
+    blockNumber: ev.blockNumber?.toString() ?? "0",
+  }));
 
-    for (const yap of yaps) {
-      await recordYapperClusterQueue.add(
-        "recordYapperCluster",
-        {
-          yap,
-          chainId,
-          contractEvents: jobEvents,
-        },
-        {
-          jobId: "recordYapperCluster" + `-${yap.jobId}` + `-${yap.yapperid}`,
-          removeOnComplete: true,
-        }
-      );
-      console.log(
-        `Enqueued yapper ${yap.yapperid} for job ${jobId} into recordYapperClusterQueue`
-      );
-    }
+  for (const yap of yaps) {
+    await recordYapperClusterQueue.add(
+      "recordYapperCluster",
+      {
+        yap,
+        chainId,
+        contractEvents: jobEvents,
+      },
+      {
+        jobId: "recordYapperCluster" + `-${yap.jobId}` + `-${yap.yapperid}`,
+        removeOnComplete: true,
+      }
+    );
+    console.log(
+      `Enqueued yapper ${yap.yapperid} for job ${jobId} into recordYapperClusterQueue`
+    );
   }
 }
 
