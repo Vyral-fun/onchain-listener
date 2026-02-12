@@ -24,6 +24,7 @@ export const YAP_API_URL = Bun.env.YAP_API_URL;
 export const YAP_API_KEY = Bun.env.YAP_API_KEY;
 export const BASE_CONTRACT_ADDRESS = Bun.env.BASE_ESCROW_CONTRACT;
 export const MONAD_ESCROW_CONTRACT = Bun.env.MONAD_ESCROW_CONTRACT;
+export const SAFE_CONFIRMATIONS = 2;
 
 export const ECOSYSTEM_DETAILS = [
   {
