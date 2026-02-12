@@ -9,6 +9,7 @@ import {
   LOG_EVERY_N_BLOCKS,
   MAX_BLOCKS_PER_QUERY,
   NULL_ADDRESS,
+  SAFE_CONFIRMATIONS,
 } from "@/utils/constants";
 import { handleYapRequestCreatedQueue } from "./queue";
 import {
@@ -113,11 +114,17 @@ async function startPolling(listener: NetworkContractListener) {
         ? listener.backupProvider
         : listener.httpProvider;
 
-      const currentBlock = await withTimeout(
+      const latest = await withTimeout(
         httpProvider.getBlockNumber(),
         RPC_TIMEOUT,
         "getBlockNumber"
       );
+
+      const currentBlock = latest - SAFE_CONFIRMATIONS;
+
+      if (currentBlock <= listener.lastProcessedBlock) {
+        return;
+      }
 
       const fromBlock = listener.lastProcessedBlock + 1;
       const blocksBehind = currentBlock - listener.lastProcessedBlock;
