@@ -6,6 +6,7 @@ import {
   getJobEventAddresses,
   getJobEvents,
   getJobOnchainLeaderboard,
+  getJobOnchainMetrics,
   getJobOnchainRewards,
 } from "../controllers/job-controllers";
 import {
@@ -22,14 +23,12 @@ ApiRoutes.get("/events/jobs", getAllJobs);
 ApiRoutes.get("/events/:jobId/addresses", getJobEventAddresses);
 ApiRoutes.get("/events/:jobId/clusters", getJobClusters);
 ApiRoutes.get("job/:jobId/leaderboard", getJobOnchainLeaderboard);
+ApiRoutes.get("/job/metrics", getJobOnchainMetrics);
 ApiRoutes.post("/jobs/:jobId/rewards", getJobOnchainRewards);
 
 ApiRoutes.post("/yapper/invites/join/:yapperId", joinOnchainInvite);
 ApiRoutes.get("/yapper/invites/:yapperId", getYapperOnchainInvites);
 
-ApiRoutes.get(
-  "/invites/wallet/:walletAddress",
-  getOnchainInviteByWallet
-);
+ApiRoutes.get("/invites/wallet/:walletAddress", getOnchainInviteByWallet);
 
 export default ApiRoutes;
