@@ -12,6 +12,19 @@ import { unsubscribeJobFromContractListener } from "./listener-service";
 import { getJobYaps } from "@/api/yap/yap";
 import { NULL_ADDRESS } from "@/utils/constants";
 
+const INCOM_RWA_POOLS = new Set(
+  [
+    "0x775D5061C477B1564f2d957C4791bcC089F3D0D7",
+    "0x6B025e8F3A76573D9D411Be4B12E2c6BBd56f75f",
+    "0x18B3be6313673336A48D3a9f4522AA62CDC5a34f",
+    "0x9e39337907553d2408009EF1C164FfA783Da721c",
+    "0x5C1BeAc829aAB316A6Cd3690f756f83a05dA31ED",
+  ].map((addr) => addr.toLowerCase())
+);
+
+const INCOM_RWA_TOKEN =
+  "0x833f973406E07830d494cBe5FaBBc3AE9c750c1F".toLowerCase();
+
 export interface ContractJobEvents {
   jobId: string;
   chainId: number;
@@ -31,6 +44,18 @@ export interface Job {
   addresses: string[];
   value: bigint;
   totalInteractions: number;
+}
+
+function shouldIncludeEvent(contract: string, receiver: string): boolean {
+  if (contract === INCOM_RWA_TOKEN) {
+    let shouldinclude = !!receiver && INCOM_RWA_POOLS.has(receiver);
+    console.log(
+      `Contract is token contract and reciever is pool: ${shouldinclude}`
+    );
+    return shouldinclude;
+  }
+
+  return true;
 }
 
 export async function recordJobYapsActivity(yaps: Yap[], jobId: string) {
@@ -70,7 +95,13 @@ export async function recordJobYapsActivity(yaps: Yap[], jobId: string) {
       ev.transactionHash
     }-${ev.blockNumber}`;
 
-    if (!uniqueEventsMap.has(uniqueKey)) {
+    const contract = ev.contractAddress?.toLowerCase() ?? "";
+    const receiver = ev.reciever?.toLowerCase() ?? "";
+
+    if (
+      !uniqueEventsMap.has(uniqueKey) &&
+      shouldIncludeEvent(contract, receiver)
+    ) {
       uniqueEventsMap.set(uniqueKey, ev);
     }
   }
