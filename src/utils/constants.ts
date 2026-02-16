@@ -24,6 +24,7 @@ export const YAP_API_URL = Bun.env.YAP_API_URL;
 export const YAP_API_KEY = Bun.env.YAP_API_KEY;
 export const BASE_CONTRACT_ADDRESS = Bun.env.BASE_ESCROW_CONTRACT;
 export const MONAD_ESCROW_CONTRACT = Bun.env.MONAD_ESCROW_CONTRACT;
+export const HEDERA_ESCROW_CONTRACT = Bun.env.HEDERA_ESCROW_CONTRACT;
 export const SAFE_CONFIRMATIONS = 2;
 
 export const ECOSYSTEM_DETAILS = [
@@ -240,7 +241,7 @@ export const ECOSYSTEM_DETAILS = [
   {
     chainId: 295,
     ecosystem: "hedera_mainnet",
-    escrowContract: NULL_ADDRESS,
+    escrowContract: HEDERA_ESCROW_CONTRACT,
     chain: hedera,
     network: null,
     apiKey: Bun.env.ALCHEMY_API_KEY,
@@ -249,22 +250,22 @@ export const ECOSYSTEM_DETAILS = [
     backupDepositRPC: Bun.env.HEDERA_PROVIDER_URL,
     networkPollInterval: 2000, // 2 seconds
     env: "prod",
-    forActiveListener: false,
+    forActiveListener: true,
     abi: escrowV2Abi,
   },
   {
     chainId: 296,
     ecosystem: "hedera_testnet",
-    escrowContract: NULL_ADDRESS,
+    escrowContract: HEDERA_ESCROW_CONTRACT,
     chain: hedera,
     network: null,
     apiKey: Bun.env.ALCHEMY_API_KEY,
     rpcUrl: Bun.env.HEDERA_PROVIDER_URL,
-    depositRpcUrl: Bun.env.HEDERA_PROVIDER_URL,
-    backupDepositRPC: Bun.env.HEDERA_PROVIDER_URL,
+    depositRpcUrl: Bun.env.HEDERA_DEPOSIT_PROVIDER_URL,
+    backupDepositRPC: Bun.env.HEDERA_DEPOSIT_BACKUP_PROVIDER_URL,
     networkPollInterval: 2000, // 2 seconds
     env: "development",
-    forActiveListener: false,
+    forActiveListener: true,
     abi: escrowV2Abi,
   },
 ];

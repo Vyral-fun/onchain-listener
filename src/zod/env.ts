@@ -99,6 +99,12 @@ export const envSchema = z.object({
   HEDERA_PROVIDER_URL: z.string({
     required_error: "HEDERA_PROVIDER_URL is required",
   }),
+  HEDERA_DEPOSIT_PROVIDER_URL: z.string({
+    required_error: "HEDERA_DEPOSIT_PROVIDER_URL is required",
+  }),
+  HEDERA_DEPOSIT_BACKUP_PROVIDER_URL: z.string({
+    required_error: "HEDERA_DEPOSIT_BACKUP_PROVIDER_URL is required",
+  }),
 
   TWITTER_API_KEY: z.string({
     required_error: "TWITTER_API_KEY is required",
@@ -109,6 +115,9 @@ export const envSchema = z.object({
   }),
   MONAD_ESCROW_CONTRACT: z.string({
     required_error: "MONAD_ESCROW_CONTRACT is required",
+  }),
+  HEDERA_ESCROW_CONTRACT: z.string({
+    required_error: "HEDERA_ESCROW_CONTRACT is required",
   }),
 });
 
