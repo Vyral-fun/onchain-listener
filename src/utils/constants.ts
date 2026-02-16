@@ -1,5 +1,6 @@
 import { Network } from "alchemy-sdk";
 import { abi as escrowV2Abi } from "../escrowV2.json";
+import { abi as hederaEscrowV2Abi } from "../hederaEscrowV2.json";
 import { abi as monadEscrowV2Abi } from "../monadEscrowV2.json";
 import {
   arbitrum,
@@ -251,7 +252,7 @@ export const ECOSYSTEM_DETAILS = [
     networkPollInterval: 2000, // 2 seconds
     env: "prod",
     forActiveListener: true,
-    abi: escrowV2Abi,
+    abi: hederaEscrowV2Abi,
   },
   {
     chainId: 296,
@@ -266,7 +267,7 @@ export const ECOSYSTEM_DETAILS = [
     networkPollInterval: 2000, // 2 seconds
     env: "development",
     forActiveListener: true,
-    abi: escrowV2Abi,
+    abi: hederaEscrowV2Abi,
   },
 ];
 
