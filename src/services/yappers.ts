@@ -133,10 +133,12 @@ export async function recordYapperClusterActivity(
             yappersDerivedAddressActivity.jobId,
           ],
           set: {
-            value: sql`EXCLUDED.value`,
-            event: sql`EXCLUDED.event`,
-            transactionHash: sql`EXCLUDED.transaction_hash`,
-            interacted: sql`EXCLUDED.interacted OR ${yappersDerivedAddressActivity.interacted}`,
+            value: sql.raw("EXCLUDED.value"),
+            event: sql.raw("EXCLUDED.event"),
+            transactionHash: sql.raw("EXCLUDED.transaction_hash"),
+            interacted: sql.raw(
+              "EXCLUDED.interacted OR yappers_derived_address_activity.interacted"
+            ),
           },
         });
     }

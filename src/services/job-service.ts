@@ -22,11 +22,8 @@ const INCOM_RWA_POOLS = new Set(
   ].map((addr) => addr.toLowerCase())
 );
 
-// const INCOM_RWA_TOKEN =
-//   "0x833f973406E07830d494cBe5FaBBc3AE9c750c1F".toLowerCase();
-
 const INCOM_RWA_TOKEN =
-  "0xf1966A1d1a6098c80341f38DCE1a54F8D67e8c87".toLowerCase();
+  "0x833f973406E07830d494cBe5FaBBc3AE9c750c1F".toLowerCase();
 
 export interface ContractJobEvents {
   jobId: string;
