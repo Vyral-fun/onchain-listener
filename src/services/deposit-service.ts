@@ -202,7 +202,8 @@ async function startPolling(listener: NetworkContractListener) {
           if (parsed?.name === "YapRequestCreated") {
             const { yapId, creator, jobId, asset, budget, fee } = parsed.args;
 
-            let decimals = 18;
+            let decimals = chainId === 296 || chainId === 295 ? 8 : 18;
+
             if (asset !== NULL_ADDRESS) {
               try {
                 const cached = decimalsCache.get(asset);
