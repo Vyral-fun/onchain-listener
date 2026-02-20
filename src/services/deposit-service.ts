@@ -17,6 +17,7 @@ import {
   sendDepositAlert,
   shouldSendDepositAlert,
 } from "./alert";
+import { getTokenDecimals } from "@/utils/tokens";
 
 export const decimalsCache = new Map<string, number>();
 
@@ -202,30 +203,7 @@ async function startPolling(listener: NetworkContractListener) {
           if (parsed?.name === "YapRequestCreated") {
             const { yapId, creator, jobId, asset, budget, fee } = parsed.args;
 
-            let decimals = chainId === 296 || chainId === 295 ? 8 : 18;
-
-            if (asset !== NULL_ADDRESS) {
-              try {
-                const cached = decimalsCache.get(asset);
-                if (cached !== undefined) {
-                  decimals = cached;
-                } else {
-                  const tokenContract = new ethers.Contract(
-                    asset,
-                    erc20Abi,
-                    httpProvider
-                  ) as unknown as ERC20;
-
-                  decimals = await tokenContract.decimals();
-                  decimalsCache.set(asset, decimals);
-                }
-              } catch (error) {
-                console.error(
-                  `[${chainId}] Error fetching decimals for asset ${asset}:`,
-                  error
-                );
-              }
-            }
+            const decimals = getTokenDecimals(chainId, asset);
 
             const adjustedBudget = Number(ethers.formatUnits(budget, decimals));
             const adjustedFee = Number(ethers.formatUnits(fee, decimals));
