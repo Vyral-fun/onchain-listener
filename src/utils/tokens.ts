@@ -1,4 +1,4 @@
-export const TOKEN_DECIMALS: Record<string, number> = {
+const RAW_TOKEN_DECIMALS: Record<string, number> = {
   "295:0x0000000000000000000000000000000000000000": 8,
   "296:0x0000000000000000000000000000000000000000": 8,
   "84532:0x0000000000000000000000000000000000000000": 18,
@@ -12,6 +12,13 @@ export const TOKEN_DECIMALS: Record<string, number> = {
   "10143:0x0000000000000000000000000000000000000000": 18,
   "143:0x0000000000000000000000000000000000000000": 18,
 };
+
+export const TOKEN_DECIMALS: Record<string, number> = Object.fromEntries(
+  Object.entries(RAW_TOKEN_DECIMALS).map(([key, value]) => [
+    key.toLowerCase(),
+    value,
+  ])
+);
 
 export function getTokenKey(chainId: number, address: string): string {
   return `${chainId}:${address.toLowerCase()}`;

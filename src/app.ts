@@ -28,6 +28,7 @@ import {
 } from "./services/queue";
 import { processBlock } from "scripts/processBlock";
 import { connectBot } from "./services/alert";
+import { getTokenDecimals } from "./utils/tokens";
 
 const API_KEY = Bun.env.API_KEY;
 
@@ -81,6 +82,7 @@ app.get("/health", (c: Context) => {
 
 app.route("/api/v1/onchain-listener", ApiRoutes);
 await updateNetworksListeners();
+getTokenDecimals(84532, "0xf1966A1d1a6098c80341f38DCE1a54F8D67e8c87")
 connectBot();
 await initializeListenersFromDatabase();
 
