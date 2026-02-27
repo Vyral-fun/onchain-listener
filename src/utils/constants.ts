@@ -247,8 +247,8 @@ export const ECOSYSTEM_DETAILS = [
     network: null,
     apiKey: Bun.env.ALCHEMY_API_KEY,
     rpcUrl: Bun.env.HEDERA_PROVIDER_URL,
-    depositRpcUrl: Bun.env.HEDERA_PROVIDER_URL,
-    backupDepositRPC: Bun.env.HEDERA_PROVIDER_URL,
+    depositRpcUrl: Bun.env.HEDERA_DEPOSIT_PROVIDER_URL,
+    backupDepositRPC: Bun.env.HEDERA_DEPOSIT_BACKUP_PROVIDER_URL,
     networkPollInterval: 2000, // 2 seconds
     env: "development",
     forActiveListener: true,
