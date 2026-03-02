@@ -41,10 +41,10 @@ app.use(
     c.res.headers.set("X-Content-Type-Options", "nosniff");
     c.res.headers.set(
       "Strict-Transport-Security",
-      "max-age=31536000; includeSubDomains"
+      "max-age=31536000; includeSubDomains",
     );
     await next();
-  })
+  }),
 );
 
 app.use(
@@ -52,17 +52,24 @@ app.use(
   cors({
     origin:
       Bun.env.NODE_ENV === "production"
-        ? [Bun.env.CLIENT_URL, Bun.env.YAP_CLIENT_URL]
+        ? [
+            Bun.env.CLIENT_URL,
+            Bun.env.YAP_CLIENT_URL,
+            "https://app-stage.yap.tips",
+            "https://go.yap.market",
+          ]
         : [
             Bun.env.CLIENT_URL,
             "http://localhost:4000",
             "localhost:4000",
             Bun.env.YAP_CLIENT_URL,
+            "https://app-stage.yap.tips",
+            "https://go.yap.market",
           ],
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     exposeHeaders: ["Content-Length"],
     credentials: true,
-  })
+  }),
 );
 
 app.use(
@@ -70,7 +77,7 @@ app.use(
   bodyLimit({
     maxSize: 5 * 1024 * 1024, // 5MB
     onError: (c) => c.text("Request body too large", 413),
-  })
+  }),
 );
 
 app.use("/api/*", bearerAuth({ token: API_KEY }));
