@@ -250,7 +250,7 @@ export const ECOSYSTEM_DETAILS = [
     depositRpcUrl: Bun.env.HEDERA_DEPOSIT_PROVIDER_URL,
     backupDepositRPC: Bun.env.HEDERA_DEPOSIT_BACKUP_PROVIDER_URL,
     networkPollInterval: 2000, // 2 seconds
-    env: "development",
+    env: "prod",
     forActiveListener: true,
     abi: hederaEscrowV2Abi,
   },
@@ -265,7 +265,7 @@ export const ECOSYSTEM_DETAILS = [
     depositRpcUrl: Bun.env.HEDERA_DEPOSIT_PROVIDER_URL,
     backupDepositRPC: Bun.env.HEDERA_DEPOSIT_BACKUP_PROVIDER_URL,
     networkPollInterval: 2000, // 2 seconds
-    env: "prod",
+    env: "development",
     forActiveListener: true,
     abi: hederaEscrowV2Abi,
   },
