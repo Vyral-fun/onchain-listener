@@ -84,7 +84,6 @@ app.route("/api/v1/onchain-listener", ApiRoutes);
 await updateNetworksListeners();
 connectBot();
 await initializeListenersFromDatabase();
-await processSpecificBlock(8453, 43220972);
 
 process.on("SIGINT", async () => {
   console.log("Shutting down gracefully...");
