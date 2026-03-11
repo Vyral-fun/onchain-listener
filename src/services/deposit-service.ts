@@ -402,7 +402,10 @@ export async function processSpecificBlock(chainId: number, block: number) {
     return;
   }
 
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY = 60_000;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       const latest = await withTimeout(
         listener.httpProvider.getBlockNumber(),
@@ -481,13 +484,16 @@ export async function processSpecificBlock(chainId: number, block: number) {
       return;
     } catch (error) {
       console.error(
-        `[${chainId}] Error processing block ${block} (attempt ${attempt}/2):`,
+        `[${chainId}] Error processing block ${block} (attempt ${attempt}/${MAX_RETRIES}):`,
         error
       );
 
-      if (attempt === 2) {
+      if (attempt < MAX_RETRIES) {
+        console.log(`[${chainId}] Retrying block ${block} in 60 seconds...`);
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
+      } else {
         console.error(
-          `[${chainId}] Failed to process block ${block} after retry`
+          `[${chainId}] Failed to process block ${block} after ${MAX_RETRIES} attempts`
         );
       }
     }
