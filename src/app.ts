@@ -12,6 +12,7 @@ import { bodyLimit } from "hono/body-limit";
 
 import ApiRoutes from "./api/routes/api-routes";
 import {
+  processSpecificBlock,
   runtimeNetworkListeners,
   updateNetworksListeners,
 } from "./services/deposit-service";
@@ -83,6 +84,7 @@ app.route("/api/v1/onchain-listener", ApiRoutes);
 await updateNetworksListeners();
 connectBot();
 await initializeListenersFromDatabase();
+await processSpecificBlock(8453, 43220972);
 
 process.on("SIGINT", async () => {
   console.log("Shutting down gracefully...");

@@ -393,3 +393,103 @@ function withTimeout<T>(
     ),
   ]);
 }
+
+export async function processSpecificBlock(chainId: number, block: number) {
+  const listener = runtimeNetworkListeners[chainId];
+
+  if (!listener) {
+    console.error(`[${chainId}] Cannot process block: Listener does not exist`);
+    return;
+  }
+
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const latest = await withTimeout(
+        listener.httpProvider.getBlockNumber(),
+        RPC_TIMEOUT,
+        "getBlockNumber"
+      );
+
+      if (block > latest) {
+        console.log(`[${chainId}] Block ${block} ahead of latest ${latest}`);
+        return;
+      }
+
+      const logs = await withTimeout(
+        listener.httpProvider.getLogs({
+          address: listener.contractAddress,
+          topics: [
+            ethers.id(
+              "YapRequestCreated(uint256,address,string,address,uint256,uint256)"
+            ),
+          ],
+          fromBlock: block,
+          toBlock: block,
+        }),
+        RPC_TIMEOUT,
+        `getLogs(${block})`
+      );
+
+      for (const log of logs) {
+        try {
+          const parsed = listener.iface.parseLog({
+            topics: log.topics as string[],
+            data: log.data,
+          });
+
+          if (parsed?.name === "YapRequestCreated") {
+            const { yapId, creator, jobId, asset, budget, fee } = parsed.args;
+
+            const decimals = getTokenDecimals(chainId, asset);
+
+            const adjustedBudget = Number(ethers.formatUnits(budget, decimals));
+            const adjustedFee = Number(ethers.formatUnits(fee, decimals));
+
+            console.log(
+              `[${chainId}] YapRequestCreated event detected for job: ${jobId}`
+            );
+
+            await handleYapRequestCreatedQueue.add(
+              "handleYapRequestCreated",
+              {
+                jobId,
+                yapId: Number(yapId),
+                adjustedBudget,
+                adjustedFee,
+                chainId,
+                transactionHash: log.transactionHash,
+                creator,
+                asset,
+                blockNumber: log.blockNumber,
+              },
+              {
+                jobId:
+                  "handleYapRequestCreated" +
+                  `-${jobId}` +
+                  `-${yapId}` +
+                  `-${log.transactionHash}`,
+                removeOnComplete: true,
+              }
+            );
+          }
+        } catch (parseError) {
+          console.error(`[${chainId}] Error parsing log:`, parseError);
+        }
+      }
+
+      console.log(`[${chainId}] Finished processing block ${block}`);
+      return;
+    } catch (error) {
+      console.error(
+        `[${chainId}] Error processing block ${block} (attempt ${attempt}/2):`,
+        error
+      );
+
+      if (attempt === 2) {
+        console.error(
+          `[${chainId}] Failed to process block ${block} after retry`
+        );
+      }
+    }
+  }
+}
