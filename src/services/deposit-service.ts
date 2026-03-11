@@ -411,9 +411,12 @@ export async function processSpecificBlock(chainId: number, block: number) {
   const RETRY_DELAY = 60_000;
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    const provider =
+      attempt % 2 === 0 ? listener.backupProvider : listener.httpProvider;
+
     try {
       const latest = await withTimeout(
-        listener.httpProvider.getBlockNumber(),
+        provider.getBlockNumber(),
         RPC_TIMEOUT,
         "getBlockNumber"
       );
@@ -424,7 +427,7 @@ export async function processSpecificBlock(chainId: number, block: number) {
       }
 
       const logs = await withTimeout(
-        listener.httpProvider.getLogs({
+        provider.getLogs({
           address: listener.contractAddress,
           topics: [
             ethers.id(
