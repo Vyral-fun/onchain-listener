@@ -267,11 +267,11 @@ async function startPolling(listener: NetworkContractListener) {
           } RPC due to error`
         );
 
-        await sendDepositAlert(
-          chainId,
-          `Switched to ${listener.usingBackup ? "backup" : "primary"} RPC\n` +
-            `Errors: ${listener.consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}`
-        );
+        // await sendDepositAlert(
+        //   chainId,
+        //   `Switched to ${listener.usingBackup ? "backup" : "primary"} RPC\n` +
+        //     `Errors: ${listener.consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}`
+        // );
       }
 
       if (listener.consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
