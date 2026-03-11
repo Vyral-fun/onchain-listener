@@ -93,10 +93,6 @@ export async function createNetworkListener(
     },
   };
 
-  if (chainId === 8453) {
-    return listener;
-  }
-
   startPolling(listener);
 
   return listener;
@@ -348,7 +344,6 @@ export async function updateNetworkContractListener(
   const newListener = await createNetworkListener(chainId, contractAddress);
   runtimeNetworkListeners[chainId] = newListener;
 
-  await processSpecificBlock(chainId, 43220972);
   return newListener;
 }
 
