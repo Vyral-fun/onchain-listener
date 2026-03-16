@@ -93,7 +93,7 @@ export async function createNetworkListener(
     },
   };
 
-  // startPolling(listener);
+  startPolling(listener);
 
   return listener;
 }
@@ -333,9 +333,9 @@ export async function updateNetworkContractListener(
 ): Promise<NetworkContractListener> {
   const listener = runtimeNetworkListeners[chainId];
 
-  // if (listener?.contractAddress === contractAddress) {
-  //   return listener;
-  // }
+  if (listener?.contractAddress === contractAddress) {
+    return listener;
+  }
 
   if (listener) {
     await listener.stop();
@@ -354,7 +354,7 @@ export async function updateNetworksListeners() {
     try {
       const { escrowContract } = getEcosystemDetails(chainId);
       await updateNetworkContractListener(chainId, escrowContract);
-      await processSpecificBlock(chainId, 43442489);
+      // await processSpecificBlock(chainId, 43442489);
       console.log(`[${chainId}] Started contract listener`);
     } catch (err) {
       console.error(`[${chainId}] Failed to start listener:`, err);
@@ -456,39 +456,27 @@ export async function processSpecificBlock(chainId: number, block: number) {
               `[${chainId}] YapRequestCreated event detected for job: ${jobId}`
             );
 
-            // await handleYapRequestCreatedQueue.add(
-            //   "handleYapRequestCreated",
-            //   {
-            //     jobId,
-            //     yapId: Number(yapId),
-            //     adjustedBudget,
-            //     adjustedFee,
-            //     chainId,
-            //     transactionHash: log.transactionHash,
-            //     creator,
-            //     asset,
-            //     blockNumber: log.blockNumber,
-            //   },
-            //   {
-            //     jobId:
-            //       "handleYapRequestCreated" +
-            //       `-${jobId}` +
-            //       `-${yapId}` +
-            //       `-${log.transactionHash}`,
-            //     removeOnComplete: true,
-            //   }
-            // );
-
-            await handleYapRequestCreated(
-              jobId,
-              Number(yapId),
-              adjustedBudget,
-              adjustedFee,
-              chainId,
-              log.transactionHash,
-              creator,
-              asset,
-              log.blockNumber
+            await handleYapRequestCreatedQueue.add(
+              "handleYapRequestCreated",
+              {
+                jobId,
+                yapId: Number(yapId),
+                adjustedBudget,
+                adjustedFee,
+                chainId,
+                transactionHash: log.transactionHash,
+                creator,
+                asset,
+                blockNumber: log.blockNumber,
+              },
+              {
+                jobId:
+                  "handleYapRequestCreated" +
+                  `-${jobId}` +
+                  `-${yapId}` +
+                  `-${log.transactionHash}`,
+                removeOnComplete: true,
+              }
             );
           }
         } catch (parseError) {
