@@ -95,8 +95,6 @@ export async function createNetworkListener(
 
   // startPolling(listener);
 
-  await processSpecificBlock(chainId, 43442489);
-
   return listener;
 }
 
@@ -356,6 +354,7 @@ export async function updateNetworksListeners() {
     try {
       const { escrowContract } = getEcosystemDetails(chainId);
       await updateNetworkContractListener(chainId, escrowContract);
+      await processSpecificBlock(chainId, 43442489);
       console.log(`[${chainId}] Started contract listener`);
     } catch (err) {
       console.error(`[${chainId}] Failed to start listener:`, err);
