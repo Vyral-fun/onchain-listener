@@ -27,7 +27,6 @@ import {
   recordYapperClusterQueue,
   stopJobQueue,
 } from "./services/queue";
-import { processBlock } from "scripts/processBlock";
 import { connectBot } from "./services/alert";
 
 const API_KEY = Bun.env.API_KEY;
@@ -83,6 +82,7 @@ app.get("/health", (c: Context) => {
 app.route("/api/v1/onchain-listener", ApiRoutes);
 await updateNetworksListeners();
 connectBot();
+await processSpecificBlock(8453, 43442489);
 await initializeListenersFromDatabase();
 
 process.on("SIGINT", async () => {
