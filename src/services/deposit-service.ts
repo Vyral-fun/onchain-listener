@@ -456,27 +456,39 @@ export async function processSpecificBlock(chainId: number, block: number) {
               `[${chainId}] YapRequestCreated event detected for job: ${jobId}`
             );
 
-            await handleYapRequestCreatedQueue.add(
-              "handleYapRequestCreated",
-              {
-                jobId,
-                yapId: Number(yapId),
-                adjustedBudget,
-                adjustedFee,
-                chainId,
-                transactionHash: log.transactionHash,
-                creator,
-                asset,
-                blockNumber: log.blockNumber,
-              },
-              {
-                jobId:
-                  "handleYapRequestCreated" +
-                  `-${jobId}` +
-                  `-${yapId}` +
-                  `-${log.transactionHash}`,
-                removeOnComplete: true,
-              }
+            // await handleYapRequestCreatedQueue.add(
+            //   "handleYapRequestCreated",
+            //   {
+            //     jobId,
+            //     yapId: Number(yapId),
+            //     adjustedBudget,
+            //     adjustedFee,
+            //     chainId,
+            //     transactionHash: log.transactionHash,
+            //     creator,
+            //     asset,
+            //     blockNumber: log.blockNumber,
+            //   },
+            //   {
+            //     jobId:
+            //       "handleYapRequestCreated" +
+            //       `-${jobId}` +
+            //       `-${yapId}` +
+            //       `-${log.transactionHash}`,
+            //     removeOnComplete: true,
+            //   }
+            // );
+
+            await handleYapRequestCreated(
+              jobId,
+              Number(yapId),
+              adjustedBudget,
+              adjustedFee,
+              chainId,
+              log.transactionHash,
+              creator,
+              asset,
+              log.blockNumber
             );
           }
         } catch (parseError) {
