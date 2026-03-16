@@ -12,7 +12,6 @@ import { bodyLimit } from "hono/body-limit";
 
 import ApiRoutes from "./api/routes/api-routes";
 import {
-  processSpecificBlock,
   runtimeNetworkListeners,
   updateNetworksListeners,
 } from "./services/deposit-service";
@@ -82,7 +81,6 @@ app.get("/health", (c: Context) => {
 app.route("/api/v1/onchain-listener", ApiRoutes);
 await updateNetworksListeners();
 connectBot();
-await processSpecificBlock(8453, 43442489);
 await initializeListenersFromDatabase();
 
 process.on("SIGINT", async () => {
