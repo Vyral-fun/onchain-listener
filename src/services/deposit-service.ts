@@ -296,9 +296,17 @@ async function startPolling(listener: NetworkContractListener) {
 
         await listener.stop();
 
-        await restartNetworkListenerQueue.add("restartBlock", {
-          chainId,
-        });
+        const delay = (10 + Math.random() * 5) * 60 * 1000;
+        await restartNetworkListenerQueue.add(
+          "restartBlock",
+          {
+            chainId,
+          },
+          {
+            delay,
+            jobId: `restart-${chainId}`,
+          }
+        );
 
         return;
       }
