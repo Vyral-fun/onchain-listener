@@ -11,7 +11,10 @@ import {
   NULL_ADDRESS,
   SAFE_CONFIRMATIONS,
 } from "@/utils/constants";
-import { handleYapRequestCreatedQueue } from "./queue";
+import {
+  handleYapRequestCreatedQueue,
+  restartNetworkListenerQueue,
+} from "./queue";
 import {
   getAlertThreshold,
   sendDepositAlert,
@@ -49,6 +52,8 @@ const MAX_CONSECUTIVE_ERRORS = 5;
 const HEALTH_CHECK_INTERVAL = 60000; // 1 minute
 export const runtimeNetworkListeners: Record<number, NetworkContractListener> =
   {};
+
+export const blockStopped: Record<number, number> = {};
 
 export async function createNetworkListener(
   chainId: number,
@@ -286,7 +291,15 @@ async function startPolling(listener: NetworkContractListener) {
             `Last block: ${listener.lastProcessedBlock}\n` +
             `Manual intervention required!`
         );
+
+        blockStopped[chainId] = listener.lastProcessedBlock;
+
         await listener.stop();
+
+        await restartNetworkListenerQueue.add("restartBlock", {
+          chainId,
+        });
+
         return;
       }
       nextPollDelay = networkPollInterval;
@@ -362,6 +375,26 @@ export async function updateNetworksListeners() {
   }
 
   startHealthCheck();
+}
+
+export async function restartNetworkListener(
+  chainId: number
+): Promise<NetworkContractListener> {
+  const listener = runtimeNetworkListeners[chainId];
+  if (listener) {
+    await listener.stop();
+  }
+  const { escrowContract } = getEcosystemDetails(chainId);
+  const newListener = await createNetworkListener(chainId, escrowContract);
+  runtimeNetworkListeners[chainId] = newListener;
+
+  let lastNetworkBlock = blockStopped[chainId];
+  if (lastNetworkBlock && lastNetworkBlock != 0) {
+    newListener.lastProcessedBlock = lastNetworkBlock;
+    newListener.lastLoggedBlock = lastNetworkBlock;
+  }
+
+  return newListener;
 }
 
 export async function resumeFrom(chainId: number, block: number) {

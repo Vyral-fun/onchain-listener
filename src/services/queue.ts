@@ -9,10 +9,17 @@ import {
 import { processBlock } from "./listener-service";
 import { handleYapRequestCreated } from "@/api/jobs/jobs";
 import { sendAlert } from "./alert";
+import { restartNetworkListener } from "./deposit-service";
 
 export const recordYapperClusterQueue = new Queue("recordYapperClusterQueue", {
   connection,
 });
+export const restartNetworkListenerQueue = new Queue(
+  "restartNetworkListenerQueue",
+  {
+    connection,
+  }
+);
 export const processBlockQueue = new Queue("processBlockQueue", {
   connection,
   defaultJobOptions: {
@@ -74,6 +81,20 @@ export const recordYapperClusterWorker = new Worker<{
   {
     connection,
     concurrency: 5,
+  }
+);
+
+export const restartNetworkListenerWorker = new Worker<{
+  chainId: number;
+}>(
+  "restartNetworkListenerQueue",
+  async (networkDetails) => {
+    const { chainId } = networkDetails.data;
+    await restartNetworkListener(chainId);
+    console.log(`Restarted listener for ${chainId}`);
+  },
+  {
+    connection,
   }
 );
 
@@ -206,4 +227,11 @@ leaderboardUpdateWorker.on("failed", (job, err) =>
 );
 leaderboardUpdateWorker.on("stalled", (job) =>
   console.error(`leaderboardUpdateWorker job ${job} stalled:`)
+);
+
+restartNetworkListenerWorker.on("failed", (job, err) =>
+  console.error(`restartNetworkListenerWorker job ${job?.id} failed:`, err)
+);
+restartNetworkListenerWorker.on("stalled", (job) =>
+  console.error(`restartNetworkListenerWorker job ${job} stalled:`)
 );
