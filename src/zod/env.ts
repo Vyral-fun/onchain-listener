@@ -96,6 +96,15 @@ export const envSchema = z.object({
   MONAD_DEPOSIT_BACKUP_RPC_URL: z.string({
     required_error: "MONAD_DEPOSIT_BACKUP_RPC_URL is required",
   }),
+  HEDERA_PROVIDER_URL: z.string({
+    required_error: "HEDERA_PROVIDER_URL is required",
+  }),
+  HEDERA_DEPOSIT_PROVIDER_URL: z.string({
+    required_error: "HEDERA_DEPOSIT_PROVIDER_URL is required",
+  }),
+  HEDERA_DEPOSIT_BACKUP_PROVIDER_URL: z.string({
+    required_error: "HEDERA_DEPOSIT_BACKUP_PROVIDER_URL is required",
+  }),
 
   TWITTER_API_KEY: z.string({
     required_error: "TWITTER_API_KEY is required",
