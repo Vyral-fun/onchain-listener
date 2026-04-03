@@ -21,6 +21,13 @@ import {
   shouldSendDepositAlert,
 } from "./alert";
 import { getTokenDecimals } from "@/utils/tokens";
+import {
+  createPublicClient,
+  http,
+  numberToHex,
+  type PublicClient,
+  type Transaction,
+} from "viem";
 
 export const decimalsCache = new Map<string, number>();
 
@@ -39,6 +46,8 @@ export interface NetworkContractListener {
   lastPollTime: number;
   httpProvider: ethers.JsonRpcProvider;
   backupProvider: ethers.JsonRpcProvider;
+  viemClient: any | null;
+  viemClientBackup: any | null;
   iface: ethers.Interface;
   pollTimer: Timer | null;
   consecutiveErrors: number;
@@ -70,6 +79,14 @@ export async function createNetworkListener(
     "getBlockNumber"
   );
 
+  let viemClient = null;
+  let viemClientBackup = null;
+
+  if (chainId === 295 || chainId === 296) {
+    viemClient = createViemPublicClient(depositRpcUrl, chainId);
+    viemClientBackup = createViemPublicClient(backupDepositRPC, chainId);
+  }
+
   const listener: NetworkContractListener = {
     abi,
     chainId,
@@ -80,6 +97,8 @@ export async function createNetworkListener(
     lastBlockLogTime: 0,
     lastPollTime: Date.now(),
     iface,
+    viemClient,
+    viemClientBackup,
     pollTimer: null,
     httpProvider,
     backupProvider,
@@ -119,6 +138,10 @@ async function startPolling(listener: NetworkContractListener) {
       let httpProvider = listener.usingBackup
         ? listener.backupProvider
         : listener.httpProvider;
+
+      let viemClient = listener.usingBackup
+        ? listener.viemClientBackup
+        : listener.viemClient;
 
       const latest = await withTimeout(
         httpProvider.getBlockNumber(),
@@ -183,19 +206,13 @@ async function startPolling(listener: NetworkContractListener) {
         return;
       }
 
-      const logs = await withTimeout(
-        httpProvider.getLogs({
-          address: contractAddress,
-          topics: [
-            ethers.id(
-              "YapRequestCreated(uint256,address,string,address,uint256,uint256)"
-            ),
-          ],
-          fromBlock,
-          toBlock,
-        }),
-        RPC_TIMEOUT,
-        `getLogs(${fromBlock}-${toBlock})`
+      const logs = await getLogs(
+        chainId,
+        contractAddress,
+        httpProvider,
+        viemClient,
+        fromBlock,
+        toBlock
       );
 
       for (const log of logs) {
@@ -554,4 +571,72 @@ export async function processSpecificBlock(chainId: number, block: number) {
       }
     }
   }
+}
+
+async function getLogs(
+  chainId: number,
+  contractAddress: string,
+  httpProvider: ethers.JsonRpcProvider,
+  viemClient: any,
+  fromBlock: number,
+  toBlock: number
+): Promise<any[]> {
+  if (chainId === 295 || chainId === 296) {
+    const publicClient: PublicClient = viemClient;
+    const filter: any = {
+      address: contractAddress,
+      fromBlock: numberToHex(fromBlock),
+      toBlock: numberToHex(toBlock),
+    };
+
+    let blockLogs: any[] = [];
+    try {
+      blockLogs = (await publicClient.getLogs(filter)) ?? [];
+    } catch (err: any) {
+      console.warn(`[${chainId}] getLogs failed:`, err.message);
+      return [];
+    }
+
+    if (!Array.isArray(blockLogs)) {
+      console.warn(
+        `[${chainId}] getLogs returned non-array for ${fromBlock}: ${typeof blockLogs}`
+      );
+      return [];
+    }
+
+    return blockLogs;
+  } else {
+    const logs = await withTimeout(
+      httpProvider.getLogs({
+        address: contractAddress,
+        topics: [
+          ethers.id(
+            "YapRequestCreated(uint256,address,string,address,uint256,uint256)"
+          ),
+        ],
+        fromBlock,
+        toBlock,
+      }),
+      RPC_TIMEOUT,
+      `getLogs(${fromBlock}-${toBlock})`
+    );
+
+    return logs;
+  }
+}
+
+function createViemPublicClient(rpcUrl: string, chainId: number): any {
+  const httpProvider = createPublicClient({
+    chain: getEcosystemDetails(chainId).chain,
+    transport: http(rpcUrl, {
+      batch: {
+        batchSize: 50,
+        wait: 100, // 100 ms
+      },
+      retryCount: 5,
+      retryDelay: 1500, // 1.5 seconds
+    }),
+  });
+
+  return httpProvider;
 }
