@@ -237,7 +237,7 @@ async function startPolling(listener: NetworkContractListener) {
             await handleYapRequestCreatedQueue.add(
               "handleYapRequestCreated",
               {
-                jobId,
+                jobId: jobId.toString(),
                 yapId: Number(yapId),
                 adjustedBudget,
                 adjustedFee,
@@ -245,13 +245,13 @@ async function startPolling(listener: NetworkContractListener) {
                 transactionHash: log.transactionHash,
                 creator,
                 asset,
-                blockNumber: log.blockNumber,
+                blockNumber: Number(log.blockNumber),
               },
               {
                 jobId:
                   "handleYapRequestCreated" +
-                  `-${jobId}` +
-                  `-${yapId}` +
+                  `-${jobId.toString()}` +
+                  `-${yapId.toString()}` +
                   `-${log.transactionHash}`,
                 removeOnComplete: true,
               }
