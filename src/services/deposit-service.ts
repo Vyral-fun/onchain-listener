@@ -117,7 +117,12 @@ export async function createNetworkListener(
     },
   };
 
-  startPolling(listener);
+  runtimeNetworkListeners[chainId] = listener;
+  if (chainId == 295 || chainId == 296) {
+    processSpecificBlock(chainId, 93590995);
+  } else {
+    startPolling(listener);
+  }
 
   return listener;
 }
@@ -467,6 +472,9 @@ export async function processSpecificBlock(chainId: number, block: number) {
     const provider =
       attempt % 2 === 0 ? listener.backupProvider : listener.httpProvider;
 
+    const viemClient =
+      attempt % 2 === 0 ? listener.viemClientBackup : listener.viemClient;
+
     try {
       const latest = await withTimeout(
         provider.getBlockNumber(),
@@ -479,19 +487,13 @@ export async function processSpecificBlock(chainId: number, block: number) {
         return;
       }
 
-      const logs = await withTimeout(
-        provider.getLogs({
-          address: listener.contractAddress,
-          topics: [
-            ethers.id(
-              "YapRequestCreated(uint256,address,string,address,uint256,uint256)"
-            ),
-          ],
-          fromBlock: block,
-          toBlock: block,
-        }),
-        RPC_TIMEOUT,
-        `getLogs(${block})`
+      const logs = await getLogs(
+        chainId,
+        listener.contractAddress,
+        provider,
+        viemClient,
+        block,
+        block
       );
 
       for (const log of logs) {
@@ -537,7 +539,7 @@ export async function processSpecificBlock(chainId: number, block: number) {
             // );
 
             await handleYapRequestCreated(
-              jobId,
+              jobId.toString(),
               Number(yapId),
               adjustedBudget,
               adjustedFee,
@@ -545,7 +547,7 @@ export async function processSpecificBlock(chainId: number, block: number) {
               log.transactionHash,
               creator,
               asset,
-              log.blockNumber
+              Number(log.blockNumber)
             );
           }
         } catch (parseError) {
