@@ -117,12 +117,7 @@ export async function createNetworkListener(
     },
   };
 
-  runtimeNetworkListeners[chainId] = listener;
-  if (chainId == 295 || chainId == 296) {
-    processSpecificBlock(chainId, 93590995);
-  } else {
-    startPolling(listener);
-  }
+  startPolling(listener);
 
   return listener;
 }
